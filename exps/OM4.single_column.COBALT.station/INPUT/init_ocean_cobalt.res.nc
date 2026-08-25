@@ -1,0 +1,1 @@
+../../datasets/station_1d/init_ocean_cobalt.res.nc

@@ -1,0 +1,58 @@
+! Blank file in which we can put "overrides" for parameters
+#override REENTRANT_Y = True
+#override REENTRANT_X = True
+#override THICKNESS_CONFIG = "coord"
+#override ALE_COORDINATE_CONFIG = "FNC1:2,6500,6,.01"
+#override REGRIDDING_COORDINATE_MODE = "Z*"
+#override Z_INIT_REMAPPING_SCHEME = "PPM_IH4" 
+#override Z_INIT_REMAP_OLD_ALG = True
+#override TRACERS_MAY_REINIT = True
+! ---------------------------------------------------------------------
+! RELOCATABLE INITIALISATION.
+! The regression case (exps/OM4.single_column.COBALT) reads MOM_IC.nc,
+! which is index-matched to the BATS grid and therefore cannot be used
+! at another station. Here we instead let MOM6 interpolate global WOA13
+! monthly climatology onto whatever ocean_hgrid.nc is supplied, so the
+! same configuration runs anywhere.
+! The file names / variable names are already set in MOM_input
+! (TEMP_Z_INIT_FILE, SALT_Z_INIT_FILE, Z_INIT_FILE_PTEMP_VAR,
+!  Z_INIT_FILE_SALT_VAR, Z_INIT_ALE_REMAPPING); they were inert only
+! because INIT_LAYERS_FROM_Z_FILE was overridden to False.
+#override INIT_LAYERS_FROM_Z_FILE = True
+! ---------------------------------------------------------------------
+!
+#override KD = 5.e-4
+#override RESOLN_SCALED_KH = False
+#override RESOLN_SCALED_KHTH = False
+#override HENYEY_IGW_BACKGROUND = False
+#override KAPPA_BUOY_SCALE_COEF = 100.0
+#override THICKNESSDIFFUSE = False
+#override LAPLACIAN = False
+#override SMAGORINSKY_AH = False
+!Extra flags needed
+#override Z_INIT_HOMOGENIZE = True
+#override ROTATION = "betaplane"
+#override F_0 = 0
+#override HOMOGENIZE_FORCINGS = True 
+!OBGC tracers
+#override USE_OCMIP2_CFC = False
+#override USE_IDEAL_AGE_TRACER = False
+#override USE_generic_tracer = True
+#override VAR_PEN_SW = True
+#override PEN_SW_NBANDS = 3 
+#override CHL_FROM_FILE = False
+#override DO_GEOTHERMAL = True 
+#override GEOTHERMAL_SCALE = 0.0
+! GENERIC_TRACER_IC_FILE deliberately NOT set: every COBALT tracer is
+! initialised through its *_src_file entry in field_table (global WOA13 /
+! GLODAP / init_ocean_cobalt.res.nc), or cold-starts from the tracer's
+! const_init_value where no global source exists. field_table sets
+! enforce_src_info = f, which makes the missing-source case legal.
+#override MAX_FIELDS = 200
+!MOM6 photo_acc MLD
+#override PHA_MLD_CALC = True
+#override PHA_MLD_USE_DELTA_RHO = True
+#override PHA_MLD_HREF = 10.0
+#override PHA_MLD_DRHO = 0.03
+#override HREF_FOR_MLD = 10.0 
+#override DIAG_MLD_DENSITY_DIFF = 0.03
