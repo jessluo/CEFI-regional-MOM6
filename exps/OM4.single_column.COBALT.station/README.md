@@ -58,6 +58,70 @@ Coriolis parameter is derived from the grid latitude.
 Namelists provided: `input.nml_1yr` (12 months) and `input.nml_2day` (a quick
 configuration check). Both start 2004-01-01.
 
+## Installing FRE-NCtools
+
+`setup_station.sh` needs `make_hgrid`, `make_solo_mosaic`, `make_topog` and
+`make_coupler_mosaic` from [FRE-NCtools](https://github.com/NOAA-GFDL/FRE-NCtools).
+There is no packaged release; build it from source:
+
+```bash
+mkdir -p ~/work && cd ~/work
+git clone https://github.com/NOAA-GFDL/FRE-NCtools.git
+cd FRE-NCtools                      # <- easy to miss; the next two steps must run here
+autoreconf -i
+mkdir build && cd build
+../configure --prefix=$HOME/work/FRE-NCtools/build CC=gcc-16 FC=gfortran-16
+make -j8
+make install
+```
+
+The tools land in `$HOME/work/FRE-NCtools/build/bin`. Put that on your PATH
+before running `setup_station.sh`:
+
+```bash
+export PATH="$HOME/work/FRE-NCtools/build/bin:$PATH"
+```
+
+**That `export` only affects the shell you run it in.** A new terminal will
+not have it, and `setup_station.sh` will fail with
+`command not found: make_hgrid` even though the tools are installed. Either
+re-run the export in each new shell, or add the line to your shell profile
+(`~/.zshrc` for zsh, `~/.bash_profile` for bash) to make it permanent.
+
+Three things that commonly go wrong:
+
+**`autoreconf -i` fails with `possibly undefined macro: AC_PROG_LIBTOOL`.**
+GNU libtool is missing. On macOS `/usr/bin/libtool` is Apple's unrelated tool,
+so libtool can look installed when it is not — install the GNU one
+(`brew install libtool`; `apt install libtool` on Debian/Ubuntu). Homebrew's
+`autoreconf` already looks for the `g`-prefixed `glibtoolize`, so no further
+setup is needed.
+
+**`configure` reports `C compiler cannot create executables`.** The `CC` / `FC`
+you passed do not exist. Substitute whatever your toolchain provides —
+`ls $(brew --prefix)/bin/gcc-*` on macOS, or drop `CC`/`FC` entirely to use the
+system defaults. Note that the version-suffixed names track whatever GCC
+Homebrew currently installs, so the `gcc-16` above may need changing.
+
+**netCDF is found but the link fails, or the wrong netCDF is used.**
+`configure` locates netCDF through `nc-config` / `nf-config` on PATH. If you
+have a conda environment ahead of your system tools in PATH, those helpers may
+point at a netCDF built for a different architecture or compiler than the one
+you are building with. Check with `which nf-config` and put the intended
+toolchain first.
+
+Once installed, verify the tools are on PATH:
+
+```bash
+command -v make_hgrid make_solo_mosaic make_topog make_coupler_mosaic
+```
+
+That should print four paths. If it prints nothing, the PATH export above has
+not taken effect in this shell.
+
+(`make_hgrid --help` prints its usage but exits with status 2, so do not read
+a non-zero exit there as a failed install.)
+
 ## Differences between this experiment and OM4.single_column.COBALT
 
 `exps/OM4.single_column.COBALT` is a **continuous-integration regression
