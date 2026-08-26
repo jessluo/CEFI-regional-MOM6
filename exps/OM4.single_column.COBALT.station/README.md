@@ -13,18 +13,13 @@ year at any open-ocean location, given only an `ocean_hgrid.nc`.
 ```
 
 **Do not carry over `ROTATION = "betaplane"` / `F_0 = 0` from
-`OM4.single_column.COBALT`.** That setting gives zero Coriolis everywhere. It
-is harmless over that case's 48-hour run, but in anything longer there is no
-rotational limit on wind-driven mixed-layer deepening: the boundary layer
-deepens without bound, holds SST artificially low, suppresses longwave and
-latent heat loss, and the column takes up heat continuously.
+`OM4.single_column.COBALT`.** That gives zero Coriolis everywhere, which is
+harmless over that case's 48-hour run but leaves the wind-driven mixed layer
+with no rotational constraint in anything longer.
 
-A year-long run with `F_0 = 0` fails in a way that is easy to miss. It reports
-**zero truncations and healthy CFL throughout, and exits 0** — but the
-thermocline collapses (the upper 400 m goes isothermal, warming reaching
-1000 m) and the column-mean temperature climbs by roughly 2.7 C, implying a
-net surface heat flux near 1400 W/m2, which is physically impossible. Nothing
-in the run log flags it; it has to be caught by inspecting the profiles.
+The resulting failure is quiet: a year-long run still exits 0 with zero
+truncations, but the thermocline collapses and the column-mean temperature
+drifts by degrees. It has to be caught by inspecting the profiles.
 
 `2omegasinlat` derives f from the grid latitude, so every station gets the
 correct value with no further edits. This is required for any multi-month
@@ -33,30 +28,139 @@ latitude.
 
 ## Running
 
+### Before your first run
+
+Four things need to be in place. They are one-time steps except the last,
+which you repeat whenever you change station.
+
+1. **Build MOM6-SIS2-COBALT** by following
+   [`builds/README.md`](../../builds/README.md) — start at its *Quick Start
+   Guide*, which covers the prerequisites per platform. In outline: create
+   `builds/<machine>/` holding a `<platform>.env` and a `<platform>.mk` for
+   your system (the `.env` can be empty if gfortran, MPI and netCDF are already
+   installed), then from `builds/`:
+
+   ```bash
+   ./linux-build.bash -m <machine> -p <platform> -t repro -f mom6sis2
+   ```
+
+   That produces
+   `builds/build/<machine>-<platform>/ocean_ice/repro/MOM6SIS2`, which is the
+   path used in the run commands below — for example `mac-m1-osx-gnu` or
+   `gaea-ncrc5.intel23`. Substitute your own throughout.
+
+   Heed the conda warning at the top of that README and `conda deactivate`
+   before building. A conda environment ahead of your system tools on PATH can
+   supply a netCDF built for a different architecture than your compilers,
+   which surfaces only at link time as a wall of undefined symbols.
+
+   If your `.mk` enables Fortran bounds checking — as `builds/macOS/osx-gnu.mk`
+   does — read [Known issue: `atm%tr_bot`](#known-issue-atmtr_bot-out-of-bounds-abort-at-the-first-timestep)
+   before running, or the model aborts on the first timestep.
+
+2. **Install FRE-NCtools** and put it on PATH — see
+   [Installing FRE-NCtools](#installing-fre-nctools) below.
+
+   ```bash
+   export PATH="$HOME/work/FRE-NCtools/build/bin:$PATH"
+   ```
+
+3. **Get the input files** into `exps/datasets/station_1d/`. They are not in
+   the repository and not in the 1D CI dataset — see
+   [Input files](#input-files--how-to-get-them). Until this is done every
+   symlink in `INPUT/` is broken. Check with:
+
+   ```bash
+   for f in INPUT/*.nc; do [ -e "$f" ] || echo "MISSING: $f"; done
+   ```
+
+   Any output means the corresponding file is not yet in
+   `exps/datasets/station_1d/`.
+
+4. **Build the grid for your station.**
+
+   ```bash
+   ./setup_station.sh BATS 31.6667 -64.1667
+   ```
+
+   `setup_station.sh <station_name> <latitude> <longitude> [bottom_depth_m]`
+   builds a 0.4-degree, 4x4-cell box centred on the station and links the grid
+   into `INPUT/`. Default bottom depth is 4000 m.
+
+   ```bash
+   ./setup_station.sh HOT    22.75  -158.0   4800
+   ./setup_station.sh EQPAC   0.0   -140.0   5000
+   ```
+
+   Grids are kept per station under `INPUT/grids/<name>/`, so switching
+   location is just another call. Nothing else changes between stations: the
+   initial conditions and forcing are global and are interpolated onto
+   whatever grid is present, and the Coriolis parameter is derived from the
+   grid latitude.
+
+### A single-year run
+
 ```bash
-export PATH="$HOME/work/FRE-NCtools/build/bin:$PATH"   # FRE-NCtools
-./setup_station.sh BATS 31.6667 -64.1667               # build + link the grid
-ln -sfn input.nml_1yr input.nml                        # or input.nml_2day
+ln -sfn input.nml_1yr      input.nml       # 12 months from 2004-01-01
+ln -sfn diag_table_no_daily diag_table     # monthly + annual output
 mpirun -np 1 ../../builds/build/<machine>-<platform>/ocean_ice/repro/MOM6SIS2
 ```
 
-`setup_station.sh <station_name> <latitude> <longitude> [bottom_depth_m]`
-builds a 0.4-degree, 4x4-cell box centred on the station and links the grid
-files into `INPUT/`. Grids are kept per station under `INPUT/grids/<name>/`, so
-switching location is another call to the script. Default bottom depth is
-4000 m.
+Takes roughly 25 minutes on one core. Output lands in the experiment
+directory: `2004*.nc` diagnostics, `ocean.stats`, and restarts in `RESTART/`.
+
+To check the configuration before committing to a full year, swap in the
+two-day namelist — it exercises every initialisation path in about 30 seconds:
 
 ```bash
-./setup_station.sh HOT    22.75  -158.0   4800
-./setup_station.sh EQPAC   0.0   -140.0   5000
+ln -sfn input.nml_2day input.nml
 ```
 
-Nothing else needs to change between stations: the initial conditions and
-forcing are global and are interpolated onto whatever grid is present, and the
-Coriolis parameter is derived from the grid latitude.
+`ocean.stats` is the first thing to look at. Truncations should be 0 and
+`Mean Temp` should stay close to its starting value; see the note on drift
+under [Multi-year runs](#multi-year-runs-repeat-year-forcing).
 
-Namelists provided: `input.nml_1yr` (12 months) and `input.nml_2day` (a quick
-configuration check). Both start 2004-01-01.
+If the run dies immediately with
+
+```
+FATAL: time_interp_external 2: time ... is after range of list ...
+```
+
+there is a leftover `INPUT/coupler.res` from a previous multi-year run. The
+coupler reads the start date from that file whenever it exists, whatever
+`input_filename` says, so the run begins after the end of the forcing.
+`run_multiyear.sh` clears these itself, but clear them by hand if needed:
+
+```bash
+rm -f INPUT/*.res.nc INPUT/coupler.res
+```
+
+### A multi-year run
+
+```bash
+./run_multiyear.sh 10
+```
+
+See [Multi-year runs](#multi-year-runs-repeat-year-forcing) below for what the
+script does and how the output is organised. Do not start a multi-year run
+with `diag_table_with_daily` selected unless you want tens of GB of output.
+
+### Configuration: `input.nml` and `diag_table`
+
+Both are symlinks to tracked variants, so switching is a `ln -sfn` rather than
+an edit:
+
+| symlink | variants |
+|---|---|
+| `input.nml` | `input.nml_1yr` (12 months), `input.nml_2day` (quick check), `input.nml_1yr_rst` (restart segment, used by `run_multiyear.sh`) |
+| `diag_table` | `diag_table_no_daily` (monthly + annual), `diag_table_with_daily` (adds daily output) |
+
+All namelists start 2004-01-01, the only year the forcing covers.
+`diag_table_no_daily` is the default: the daily files dominate output volume,
+taking one simulated year from roughly 17 MB to 70 MB.
+
+Neither symlink is tracked in git, so a fresh clone has neither. Create them
+before the first run — the commands above do this.
 
 ## Installing FRE-NCtools
 
@@ -121,6 +225,58 @@ not taken effect in this shell.
 
 (`make_hgrid --help` prints its usage but exits with status 2, so do not read
 a non-zero exit there as a failed install.)
+
+## Multi-year runs (repeat-year forcing)
+
+```bash
+./run_multiyear.sh 10                     # ten segments
+./run_multiyear.sh 2                      # short test
+./run_multiyear.sh 10 /path/to/MOM6SIS2   # non-default build
+```
+
+The JRA55-do forcing covers calendar year 2004 only, so a multi-year
+integration re-runs that year repeatedly. Each segment reads the ocean,
+sea-ice and BGC state left by the previous one but resets the model clock to
+2004-01-01 so the forcing lines up. This is standard **repeat-year forcing**:
+the ocean spins up, the atmosphere is identical every year.
+
+The clock reset uses `force_date_from_namelist = .true.` in
+`input.nml_1yr_rst`, which overrides the date in `INPUT/coupler.res` while
+still reading the restart fields. Segment 1 is a cold start.
+
+Because every segment carries the same model dates, output would otherwise
+overwrite between segments, so each is archived on completion:
+
+```
+history/yearNN/     diagnostics and ocean.stats for that segment
+RESTART_yearNN/     restarts; the highest NN is the final state
+```
+
+To extend an existing run, rerun with a larger `<n_years>` — but note the
+script restarts from segment 1, so to continue rather than redo, start from
+the last `RESTART_yearNN` by hand.
+
+**Repeat-year forcing has no interannual variability.** A multi-year run here
+shows the ocean's adjustment and drift timescale under one fixed atmosphere,
+not decadal variability.
+
+**There is no temperature or salinity restoring**: `RESTORE_SALINITY` and
+`RESTORE_TEMPERATURE` are both false. A single column has no lateral heat or
+salt transport, so any net surface imbalance accumulates rather than being
+exported. Over one year at BATS the upper ocean warms about 1.6 C at the
+surface even with correct rotation; across ten segments that compounds.
+
+Watch column-mean temperature in `history/yearNN/ocean.stats` from segment to
+segment. If the drift is unacceptable for your application, the usual remedy
+is surface restoring: set `RESTORE_SALINITY = True` (and optionally
+`RESTORE_TEMPERATURE`) in `MOM_override` and supply the corresponding
+`SALT_RESTORE_FILE` / `SST_RESTORE_FILE` on the model grid, holding the
+monthly climatological surface values at the station. `FLUXCONST` sets the
+restoring strength. Those files have to be generated per station, for instance
+by sampling WOA at the station location onto the grid built by
+`setup_station.sh`. Restoring suppresses drift but also damps the very surface
+variability a single-column run is often set up to study, so it is a modelling
+choice rather than a fix and is not enabled by default.
 
 ## Differences between this experiment and OM4.single_column.COBALT
 
