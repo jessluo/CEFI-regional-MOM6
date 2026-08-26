@@ -141,7 +141,6 @@ atmospheric CO2 is a constant 360 ppm in `data_table` — change all three
 | `woa13_decav_{ptemp,s}_monthly_fulldepth_01.nc` | temperature, salinity |
 | `woa13_all_{n,o,p,i}_annual_01.nc` | no3, o2, po4, sio4 |
 | `GLODAPv2.2016b.oi-filled.20180322.nc` | alk, dic |
-| `GLODAPv1.abiotic.filled.20180316.nc` | abiotic carbon |
 | `cobaltv3_tracer_source.nc` | all remaining COBALT tracers |
 
 `cobaltv3_tracer_source.nc` is the COBALTv3 initial-condition file: global,
@@ -187,7 +186,7 @@ distribution. **Contact Jessica Luo for access.**
 | 9 x JRA55-do `*.padded.nc` | full-year 2004 forcing | ~12 GB |
 | `woa13_decav_{ptemp,s}_monthly_fulldepth_01.nc` | global T/S climatology | |
 | `woa13_all_{n,o,p,i}_annual_01.nc` | no3, o2, po4, sio4 | |
-| `GLODAPv2.2016b.*.nc`, `GLODAPv1.abiotic.*.nc` | alk, dic, abiotic carbon | |
+| `GLODAPv2.2016b.oi-filled.20180322.nc` | alk, dic | |
 | `cobaltv3_tracer_source.nc` | COBALTv3 tracer ICs | 744 MB |
 | `Soluble_Fe_Flux_PI.nc`, `Mineral_Fe_Flux_PI.nc`, `depflux_total.mean.1860.nc` | Fe / dust / N deposition | |
 | `seawifs-clim-*.nc` | chlorophyll climatology | |

@@ -61,10 +61,11 @@
 #override DO_GEOTHERMAL = True 
 #override GEOTHERMAL_SCALE = 0.0
 ! GENERIC_TRACER_IC_FILE deliberately NOT set: every COBALT tracer is
-! initialised through its *_src_file entry in field_table (global WOA13 /
-! GLODAP / init_ocean_cobalt.res.nc), or cold-starts from the tracer's
-! const_init_value where no global source exists. field_table sets
-! enforce_src_info = f, which makes the missing-source case legal.
+! initialised through its *_src_file entry in field_table (global WOA13,
+! GLODAPv2 and cobaltv3_tracer_source.nc), or cold-starts from the tracer's
+! const_init_value where no global source exists. Those tracers carry
+! _requires_src_info = f in field_table, which makes the missing-source
+! case legal.
 #override MAX_FIELDS = 200
 !MOM6 photo_acc MLD
 #override PHA_MLD_CALC = True

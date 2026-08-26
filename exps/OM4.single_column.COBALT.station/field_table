@@ -428,14 +428,6 @@ di14c_dest_var_unit = mol kg-1
 #di14c_src_var_gridspec = NONE   # cold start: no global IC source
 di14c_valid_min = 0.0
 #
-nh3_src_file = INPUT/init_ocean_cobalt_nh3.res.nc
-nh3_src_var_name = nh3
-nh3_src_var_unit = none
-nh3_dest_var_name = nh3
-nh3_dest_var_unit = mol kg-1
-nh3_src_var_record = 1
-nh3_src_var_gridspec = NONE
-nh3_valid_min = 0.0
 #
 mu_mem_nsm_src_file = INPUT/cobaltv3_tracer_source.nc
 mu_mem_nsm_src_var_name = mu_mem_nsm
