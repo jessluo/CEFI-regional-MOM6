@@ -1,18 +1,35 @@
 # OM4.single_column.COBALT.station
 
-A relocatable single-column MOM6-SIS2-COBALT case: **year-long runs at any
-open-ocean location**, given only an `ocean_hgrid.nc`.
+A relocatable single-column MOM6-SIS2-COBALT configuration. It runs for a full
+year at any open-ocean location, given only an `ocean_hgrid.nc`.
 
-This is the sibling of `exps/OM4.single_column.COBALT`, which is left untouched
-as the short CI regression test. Use whichever fits:
+## Important: `ROTATION` must follow the station latitude
 
-| | `OM4.single_column.COBALT` | `OM4.single_column.COBALT.station` (here) |
-|---|---|---|
-| Purpose | regression test | science runs |
-| Location | BATS only | any station |
-| Max length | ~3.6 days (forcing runs out) | full year 2004 |
-| Fe / N deposition | off (near-zero constants) | **on** (global climatology) |
-| Reference answers | `ref/ocean.stats` | none — not a regression test |
+`MOM_override` in this experiment sets:
+
+```
+#override ROTATION = "2omegasinlat"
+#override OMEGA = 7.2921E-05
+```
+
+**Do not carry over `ROTATION = "betaplane"` / `F_0 = 0` from
+`OM4.single_column.COBALT`.** That setting gives zero Coriolis everywhere. It
+is harmless over that case's 48-hour run, but in anything longer there is no
+rotational limit on wind-driven mixed-layer deepening: the boundary layer
+deepens without bound, holds SST artificially low, suppresses longwave and
+latent heat loss, and the column takes up heat continuously.
+
+A year-long run with `F_0 = 0` fails in a way that is easy to miss. It reports
+**zero truncations and healthy CFL throughout, and exits 0** — but the
+thermocline collapses (the upper 400 m goes isothermal, warming reaching
+1000 m) and the column-mean temperature climbs by roughly 2.7 C, implying a
+net surface heat flux near 1400 W/m2, which is physically impossible. Nothing
+in the run log flags it; it has to be caught by inspecting the profiles.
+
+`2omegasinlat` derives f from the grid latitude, so every station gets the
+correct value with no further edits. This is required for any multi-month
+integration, and for the configuration to be meaningful at more than one
+latitude.
 
 ## Running
 
@@ -23,160 +40,200 @@ ln -sfn input.nml_1yr input.nml                        # or input.nml_2day
 mpirun -np 1 ../../builds/build/<machine>-<platform>/ocean_ice/repro/MOM6SIS2
 ```
 
-`setup_station.sh <name> <lat> <lon> [bottom_depth_m]` builds a 0.4-degree,
-4x4-cell box centred on the station (same geometry as the CI case) and links
-the grid into `INPUT/`. Grids are kept per-station under `INPUT/grids/<name>/`,
-so switching stations is just another call to the script. Default bottom depth
-is 4000 m; pass a fourth argument for something else.
+`setup_station.sh <station_name> <latitude> <longitude> [bottom_depth_m]`
+builds a 0.4-degree, 4x4-cell box centred on the station and links the grid
+files into `INPUT/`. Grids are kept per station under `INPUT/grids/<name>/`, so
+switching location is another call to the script. Default bottom depth is
+4000 m.
 
-Verified stations: BATS (31.6667, -64.1667) and HOT (22.75, -158.0, 4800 m).
-Both give 0.000000% tiling error and run clean with no truncations.
+```bash
+./setup_station.sh HOT    22.75  -158.0   4800
+./setup_station.sh EQPAC   0.0   -140.0   5000
+```
 
-## Prerequisite: an upstream bug in the `atmos_null` submodule
+Nothing else needs to change between stations: the initial conditions and
+forcing are global and are interpolated onto whatever grid is present, and the
+Coriolis parameter is derived from the grid latitude.
 
-This case (and the regression case, and any other MOM6-SIS2 configuration)
-will abort on the **first coupled timestep** if the model was built with
-Fortran bounds checking enabled:
+Namelists provided: `input.nml_1yr` (12 months) and `input.nml_2day` (a quick
+configuration check). Both start 2004-01-01.
+
+## Differences between this experiment and OM4.single_column.COBALT
+
+`exps/OM4.single_column.COBALT` is a **continuous-integration regression
+test**. It is not a science configuration, and two of the differences below
+are the reason why.
+
+| | `OM4.single_column.COBALT` | this experiment |
+|---|---|---|
+| Purpose | CI regression test | science runs |
+| Location | BATS only | any station |
+| Run length | ~3.6 days (forcing ends) | full year 2004 |
+| Physical IC | `MOM_IC.nc`, index-matched to grid | global WOA13, interpolated |
+| BGC IC | `MOM_IC.nc` via `GENERIC_TRACER_IC_FILE` | per-tracer global sources |
+| Coriolis | `F_0 = 0` (no rotation) | `2omegasinlat` (from latitude) |
+| Fe / N deposition | off | on |
+
+**Physical initial conditions.** The regression case overrides
+`INIT_LAYERS_FROM_Z_FILE` to `False` and reads `MOM_IC.nc`, which is
+*index*-matched to the BATS grid: it is read without interpolation and is only
+valid on a grid of exactly those dimensions at exactly that location. Here it
+is `True`, so MOM6 interpolates global WOA13 monthly climatology onto whatever
+grid is supplied.
+
+**BGC initial conditions.** The regression `field_table` contains ~79
+`*_src_file` entries, but they have no effect. `enforce_src_info = f` sets
+`requires_src_info = .false.` for every tracer, and that flag is the branch
+condition in `initialize_MOM_generic_tracer`
+(`src/ocean_BGC/generic_tracers/MOM_generic_tracer.F90`) that decides whether a
+tracer initialises from its own source file. With it false, every tracer falls
+through to `GENERIC_TRACER_IC_FILE` — `MOM_IC.nc` again. This experiment sets
+`enforce_src_info = t`, which routes tracers through
+`MOM_initialize_tracer_from_Z`, interpolating each global source onto the model
+grid, and leaves `GENERIC_TRACER_IC_FILE` unset.
+
+**Coriolis.** The regression case sets `ROTATION = "betaplane"` with `F_0 = 0`
+— no rotation anywhere. This experiment uses `ROTATION = "2omegasinlat"`. This
+is the single most important setting to carry across if you adapt either case;
+see [Important: `ROTATION` must follow the station
+latitude](#important-rotation-must-follow-the-station-latitude) above for why.
+
+**Deposition.** See below.
+
+## Forcing and deposition
+
+Atmospheric forcing is JRA55-do for the full year 2004: 2930 3-hourly records
+on the global 640x320 grid, `gregorian` calendar. The regression case uses the
+first 31 records of these same files, which is why it cannot run past ~3.6
+days.
+
+Atmospheric deposition of iron, lithogenic dust and nitrogen is **enabled**
+here, from global 12-month climatologies:
+
+| Field | File | Variable |
+|---|---|---|
+| dry Fe | `Soluble_Fe_Flux_PI.nc` | `FLUX` |
+| dry lithogenic dust | `Mineral_Fe_Flux_PI.nc` | `FLUX_MINERAL` |
+| dry PO4 (scaled from dust) | `Mineral_Fe_Flux_PI.nc` | `FLUX_MINERAL` |
+| wet / dry NO3 | `depflux_total.mean.1860.nc` | `NO3_{WET,DRY}_DEP` |
+| wet / dry NH4 | `depflux_total.mean.1860.nc` | `NH4_{WET,DRY}_DEP` |
+
+**`OM4.single_column.COBALT` has no iron or nitrogen deposition at all** — its
+`data_table` supplies near-zero constants (`-1.0e-13`, `-1.0e-12`) for wet and
+dry NO3 and nothing whatsoever for Fe, lithogenic dust or NH4. Atmospheric
+deposition is a first-order nutrient source in an open-ocean column, and iron
+in particular controls diazotroph growth and the N:P balance. A single-column
+COBALT run without it is not a scientifically valid model of the ecosystem,
+which is a large part of why that case should be treated strictly as a
+regression test.
+
+Two things to note about the deposition fields used here. They are
+**pre-industrial** (`*_PI.nc`, `mean.1860`); upstream CEFI has since moved to
+ESM4 1993-2014 present-day climatologies (see `exps/NWA12.COBALT/data_table`),
+which also carry wet Fe and dust deposition that these files lack. And
+atmospheric CO2 is a constant 360 ppm in `data_table` — change all three
+`co2_*` entries together if you need a different value.
+
+## Initial conditions
+
+| Source | Provides |
+|---|---|
+| `woa13_decav_{ptemp,s}_monthly_fulldepth_01.nc` | temperature, salinity |
+| `woa13_all_{n,o,p,i}_annual_01.nc` | no3, o2, po4, sio4 |
+| `GLODAPv2.2016b.oi-filled.20180322.nc` | alk, dic |
+| `GLODAPv1.abiotic.filled.20180316.nc` | abiotic carbon |
+| `cobaltv3_tracer_source.nc` | all remaining COBALT tracers |
+
+`cobaltv3_tracer_source.nc` is the COBALTv3 initial-condition file: global,
+360x180 x 35 depth levels, containing the 76 tracers COBALTv3 needs to run
+anywhere:
+
+```
+cadet_arag  cadet_arag_btf  cadet_calc  cadet_calc_btf  cased      chl
+co3_ion     fed             fedet       fedet_btf       fedi       fedi_btf
+felg        felg_btf        femd        femd_btf        fesm       fesm_btf
+htotal      irr_aclm        irr_aclm_sfc irr_aclm_z     irr_mem    ldon
+ldop        lith            lithdet     lithdet_btf     mu_mem_ndi mu_mem_nlg
+mu_mem_nmd  mu_mem_nsm      nbact       ndet            ndet_btf   ndet_fast
+ndet_fast_btf ndi           ndi_btf     nh3             nh4        nlg
+nlg_btf     nlgz            nmd         nmd_btf         nmdz       nsm
+nsm_btf     nsmz            pcmlim_aclm_ndi pcmlim_aclm_nlg
+pcmlim_aclm_nmd pcmlim_aclm_nsm         pdet            pdet_btf   pdet_fast
+pdet_fast_btf pdi           pdi_btf     plg             plg_btf    pmd
+pmd_btf     psm             psm_btf     sidet           sidet_btf  silg
+silg_btf    simd            simd_btf    sldon           sldop      srdon
+srdop
+```
+
+The `*_btf` bottom-flux tracers and the acclimation and memory variables
+(`irr_aclm*`, `pcmlim_aclm_*`, `mu_mem_*`, `irr_mem`) start from zero rather
+than from file — they are empty in the source file, and zero is the correct
+start for them: bottom fluxes accumulate from zero and the memory variables
+relax to ambient conditions within days. They carry
+`_requires_src_info = f` and `_requires_restart = f` in `field_table`, which
+routes them down `MOM_generic_tracer`'s "initialized by the tracer package"
+path instead of demanding a `GENERIC_TRACER_IC_FILE`.
+
+## Input files — how to get them
+
+Everything under `INPUT/` is a symlink into `exps/datasets/station_1d/`, which
+is **not** tracked in this repository, so a fresh clone has broken symlinks
+until that directory is populated. These files are not part of the 1D CI
+dataset (`1d_ci_datasets.tar.gz`) and are not part of the CEFI dataset
+distribution. **Contact Jessica Luo for access.**
+
+| Files | Purpose | Size |
+|---|---|---|
+| 9 x JRA55-do `*.padded.nc` | full-year 2004 forcing | ~12 GB |
+| `woa13_decav_{ptemp,s}_monthly_fulldepth_01.nc` | global T/S climatology | |
+| `woa13_all_{n,o,p,i}_annual_01.nc` | no3, o2, po4, sio4 | |
+| `GLODAPv2.2016b.*.nc`, `GLODAPv1.abiotic.*.nc` | alk, dic, abiotic carbon | |
+| `cobaltv3_tracer_source.nc` | COBALTv3 tracer ICs | 744 MB |
+| `Soluble_Fe_Flux_PI.nc`, `Mineral_Fe_Flux_PI.nc`, `depflux_total.mean.1860.nc` | Fe / dust / N deposition | |
+| `seawifs-clim-*.nc` | chlorophyll climatology | |
+
+`geothermal_davies2013_v1.nc` and `diag_rho2.nc` come from the 1D CI dataset
+(`exps/datasets/OM4_025.JRA.single_column/`).
+
+## Known issue: `atm%tr_bot` out-of-bounds abort at the first timestep
+
+If the model was built with Fortran bounds checking enabled — which the macOS
+build turns on by default, since `builds/macOS/osx-gnu.mk` ships
+`FFLAGS_REPRO = -O1 -fbounds-check` — the run aborts on the first coupled
+timestep with:
 
 ```
 Fortran runtime error: Index '2' of dimension 3 of array 'atm%tr_bot'
 outside of expected range (1:1)
 ```
 
-`src/atmos_null/atmos_model.F90` calls `register_tracers(MODEL_LAND, ...)` and
-then uses that count to allocate the **atmosphere's** `tr_bot`,
-`Surf_Diff%dflux_tr` and `delta_tr`. The field table declares one land tracer
-(`sphum`) but four atmospheric ones (`sphum`, `liq_wat`, `ice_wat`,
-`cld_amt`), so the coupler — which loops over the atmospheric count in
-`atm_land_ice_flux_exchange.F90`, pairing it with
-`get_tracer_names(MODEL_ATMOS, ...)` — indexes past the end of a
-one-element array. The fix is to register `MODEL_ATMOS` instead (and to import
-`MODEL_ATMOS` rather than `MODEL_LAND` at the top of the file).
+This is a bug in the `atmos_null` submodule, not in this experiment.
+`atmos_model.F90` counts **land** tracers and uses that number to allocate the
+**atmosphere's** arrays. The field table declares one land tracer (`sphum`) but
+four atmospheric ones (`sphum`, `liq_wat`, `ice_wat`, `cld_amt`), so the
+coupler — which loops over the atmospheric count — indexes past the end of a
+one-element array. The same count also undersizes `Surf_Diff%dflux_tr` and
+`Surf_Diff%delta_tr`.
 
-**Why this is not already fixed:** `builds/docker/linux-gnu.mk` has
-`-fbounds-check` commented out of `FFLAGS_DEBUG`, and CI runs the `debug`
-build, so CI never trips it. The out-of-bounds access still happens there —
-silently. `builds/macOS/osx-gnu.mk`, by contrast, ships
-`FFLAGS_REPRO = -O1 -fbounds-check`, so anyone following the macOS build
-instructions hits it immediately.
+Two lines in `src/atmos_null/atmos_model.F90` need to change:
 
-Two things to know: `src/atmos_null` is a **submodule**, so `git submodule
-update` will silently revert a local fix — re-apply it after any submodule
-sync. And the fix belongs upstream at
-https://github.com/NOAA-GFDL/atmos_null, not in this repository; it is
-deliberately not part of this experiment's commit.
+```diff
+@@ line 83 @@
+-use field_manager_mod, only : MODEL_LAND
++use field_manager_mod, only : MODEL_ATMOS
 
-## Why this case can relocate and the regression case cannot
+@@ line 483 @@
+-call register_tracers(MODEL_LAND, ntracers, ntprog, ndiag)
++call register_tracers(MODEL_ATMOS, ntracers, ntprog, ndiag)
+```
 
-Two independent things had to change.
+Then rebuild.
 
-**1. Physical T/S.** The regression case sets
-`INIT_LAYERS_FROM_Z_FILE = False` and reads `MOM_IC.nc`, which is *index*-matched
-to the BATS grid — it is read without interpolation, so it only works on a grid
-of exactly those dimensions at exactly that location. Here it is `True`, so MOM6
-interpolates global WOA13 monthly climatology onto whatever grid is present.
-The filenames were already correct in `MOM_input`; they were simply inert.
+Note that `src/atmos_null` is a **submodule**, so `git submodule update` will
+silently revert the change — reapply it after any submodule sync. The fix
+belongs upstream at https://github.com/NOAA-GFDL/atmos_null.
 
-**2. BGC tracers.** Less obvious. The regression `field_table` has ~79
-`*_src_file` entries pointing at `bgc_woa_esper_ics_..._BATS.nc`, but they are
-**never used**: `enforce_src_info = f` sets `requires_src_info = .false.` for
-every tracer, and that flag is the branch condition in
-`MOM_generic_tracer.F90` (`initialize_MOM_generic_tracer`) that decides whether
-a tracer initialises from its source file. With it false every tracer falls
-through to `GENERIC_TRACER_IC_FILE` — i.e. `MOM_IC.nc` again.
-
-Here `enforce_src_info = t`, which routes tracers through
-`MOM_initialize_tracer_from_Z`. That interpolates each tracer's global Z-space
-source onto the model grid, and `GENERIC_TRACER_IC_FILE` is not set at all.
-
-## Initial conditions
-
-56 tracers come from global sources:
-
-| Source | Tracers |
-|---|---|
-| `woa13_all_{n,o,p,i}_annual_01.nc` | no3, o2, po4, sio4 |
-| `GLODAPv2.2016b.oi-filled.*.nc` | alk, dic |
-| `GLODAPv1.abiotic.filled.*.nc` | abiotic carbon |
-| `cobaltv3_tracer_source.nc` | the remaining ~50 |
-
-`cobaltv3_tracer_source.nc` (global, 360x180, 35 z-levels) replaced the
-2023-era `init_ocean_cobalt.res.nc` entirely. Its shared fields are bitwise
-identical to that file and it loses nothing, so it is a strict superset --
-worth checking again if either file is ever regenerated.
-
-### Two things about this IC file you should know
-
-**The medium-phytoplankton fields are seeds, not climatology.** In the
-delivered file `nmd` is a bitwise copy of `nsm`, `femd` of `fesm`, and `simd`
-of `silg`. That gets the group off zero -- which is essential, because zero
-biomass is an absorbing state for a phytoplankton group and it could never
-grow -- but the medium group redistributes over the first weeks rather than
-starting at its true biomass.
-
-**The phosphorus fields were derived here, not delivered.** As shipped,
-`psm`, `pmd`, `plg` and `pdi` were bitwise copies of their *nitrogen*
-counterparts, i.e. P:N = 1.0 against a Redfield expectation of 0.0625 -- a 16x
-phosphorus overestimate in every phytoplankton group. They were recomputed
-in place as N/16 and the file's `long_name`/`comment` attributes updated to
-record this; the untouched original is `cobaltv3_tracer_source.nc.orig`.
-Because they are a uniform 1/16 of N, they carry **no spatial P:N structure**.
-If you need P:N variability it has to come from a properly generated source.
-
-24 tracers still **cold-start** (`_requires_src_info = f`,
-`_requires_restart = f`): the `*_btf` bottom fluxes and the acclimation /
-memory variables (`irr_aclm*`, `pcmlim_aclm_*`, `mu_mem_*`, `irr_mem`). These
-are empty in `cobaltv3_tracer_source.nc` too, and zero is legitimate for them
--- bottom fluxes accumulate from zero and the memory variables relax to
-ambient within days.
-
-Verification after a 2-day run at BATS: `nmd` mean 4.57e-08 vs `nsm` 4.01e-08.
-They start bitwise identical, so a 14% divergence in two days confirms the
-medium group is a live prognostic variable. `pmd`/`nmd` drifts from the
-imposed 0.0625 to 0.0513 over the same period, confirming the phosphorus
-evolves under its own dynamics.
-
-Sanity check at BATS: WOA-interpolated initial state reproduces `MOM_IC.nc`'s
-mean T (6.2462 C), mean S (35.2427) and total mass (6.97073E+15) to printed
-precision.
-
-## Forcing and deposition
-
-JRA55-do, full year 2004: 2930 3-hourly records, global 640x320, `gregorian`.
-The regression case's files are the first 31 records of these same files.
-
-Atmospheric deposition of Fe, lithogenic dust and N is **enabled** from global
-12-month climatologies. Note these are **pre-industrial** (`*_PI.nc`,
-`depflux_total.mean.1860.nc`). Upstream CEFI has moved to ESM4 1993-2014
-present-day climatologies (see `exps/NWA12.COBALT/data_table`), which also
-carry wet Fe and dust deposition that these files lack. Swap if you need
-present-day forcing. Atmospheric CO2 is a constant 360 ppm in `data_table`.
-
-## Input files -- how to get them
-
-Everything under `INPUT/` is a symlink into `exps/datasets/station_1d/`, which
-is **not** tracked in this repository. A fresh clone therefore has broken
-symlinks until that directory is populated.
-
-These files are not part of the 1D CI dataset
-(`1d_ci_datasets.tar.gz`), and they are not part of the CEFI dataset
-distribution either. **Contact Jessica Luo (@jessluo) for access.**
-
-What is needed in `exps/datasets/station_1d/`:
-
-| Files | Purpose | Size |
-|---|---|---|
-| 9 x JRA55-do `*.padded.nc` | full-year 2004 forcing, 2930 3-hourly records | ~12 GB |
-| `woa13_decav_{ptemp,s}_monthly_fulldepth_01.nc` | global T/S climatology | |
-| `woa13_all_{n,o,p,i}_annual_01.nc` | no3, o2, po4, sio4 | |
-| `GLODAPv2.2016b.oi-filled.*.nc`, `GLODAPv1.abiotic.filled.*.nc` | alk, dic, abiotic carbon | |
-| `cobaltv3_tracer_source.nc` | the remaining COBALT tracers | 744 MB |
-| `Soluble_Fe_Flux_PI.nc`, `Mineral_Fe_Flux_PI.nc`, `depflux_total.mean.1860.nc` | Fe / dust / N deposition | |
-| `seawifs-clim-*.nc` | chlorophyll climatology | |
-
-On the machine this case was developed on, `exps/datasets/station_1d/` is a
-directory of symlinks into a separate checkout
-(`model_checkouts/MOM6_OBGC_examples`) rather than copies, so nothing is
-duplicated; `cobaltv3_tracer_source.nc` is the one real file there. If that
-checkout moves, relinking that single directory is enough -- nothing in this
-experiment needs to change.
+The out-of-bounds access happens on every platform; it is only *detected* where
+bounds checking is on. CI does not catch it because
+`builds/docker/linux-gnu.mk` has `-fbounds-check` commented out of
+`FFLAGS_DEBUG` and CI runs the `debug` build.

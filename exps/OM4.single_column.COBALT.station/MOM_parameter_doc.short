@@ -110,12 +110,6 @@ MAXIMUM_DEPTH = 6500.0          !   [m]
 ! if any.
 
 ! === module MOM_fixed_initialization ===
-ROTATION = "betaplane"          ! default = "2omegasinlat"
-                                ! This specifies how the Coriolis parameter is specified:
-                                !     2omegasinlat - Use twice the planetary rotation rate
-                                !       times the sine of latitude.
-                                !     betaplane - Use a beta-plane or f-plane.
-                                !     USER - call a user modified routine.
 
 ! === module MOM_verticalGrid ===
 ! Parameters providing information about the vertical grid.

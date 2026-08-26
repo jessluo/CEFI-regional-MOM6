@@ -321,18 +321,14 @@ CHANNEL_CONFIG = "none"         ! default = "none"
                                 !       NetCDF file on the model grid.
 SUBGRID_TOPO_AT_VEL = False     !   [Boolean] default = False
                                 ! If true, use variables from TOPO_AT_VEL_FILE as parameters for porous barrier.
-ROTATION = "betaplane"          ! default = "2omegasinlat"
+ROTATION = "2omegasinlat"       ! default = "2omegasinlat"
                                 ! This specifies how the Coriolis parameter is specified:
                                 !     2omegasinlat - Use twice the planetary rotation rate
                                 !       times the sine of latitude.
                                 !     betaplane - Use a beta-plane or f-plane.
                                 !     USER - call a user modified routine.
-F_0 = 0.0                       !   [s-1] default = 0.0
-                                ! The reference value of the Coriolis parameter with the betaplane option.
-BETA = 0.0                      !   [m-1 s-1] default = 0.0
-                                ! The northward gradient of the Coriolis parameter with the betaplane option.
-BETA_LAT_REF = 0.0              !   [degrees] default = 0.0
-                                ! The reference latitude (origin) of the beta-plane
+OMEGA = 7.2921E-05              !   [s-1] default = 7.2921E-05
+                                ! The rotation rate of the earth.
 GRID_ROTATION_ANGLE_BUGS = False !   [Boolean] default = False
                                 ! If true, use an older algorithm to calculate the sine and cosines needed
                                 ! rotate between grid-oriented directions and true north and east.  Differences
@@ -934,8 +930,6 @@ LINEAR_DRAG = False             !   [Boolean] default = False
 DYNAMIC_VISCOUS_ML = False      !   [Boolean] default = False
                                 ! If true, use a bulk Richardson number criterion to determine the mixed layer
                                 ! thickness for viscosity.
-OMEGA = 7.2921E-05              !   [s-1] default = 7.2921E-05
-                                ! The rotation rate of the earth.
 HBBL = 10.0                     !   [m]
                                 ! The thickness of a bottom boundary layer with a viscosity increased by
                                 ! KV_EXTRA_BBL if BOTTOMDRAGLAW is not defined, or the thickness over which
