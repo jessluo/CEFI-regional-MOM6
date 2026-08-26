@@ -1,1 +1,1 @@
-../../datasets/OM4_025.JRA.single_column/diag_rho2.nc
+../../datasets/station_1d/diag_rho2.nc

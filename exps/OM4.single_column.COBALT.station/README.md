@@ -92,11 +92,21 @@ which you repeat whenever you change station.
    ./setup_station.sh EQPAC   0.0   -140.0   5000
    ```
 
-   Grids are kept per station under `INPUT/grids/<name>/`, so switching
-   location is just another call. Nothing else changes between stations: the
-   initial conditions and forcing are global and are interpolated onto
-   whatever grid is present, and the Coriolis parameter is derived from the
-   grid latitude.
+   Grids are kept per station under `INPUT/grids/<name>/` and are not deleted
+   when you switch, so build a set once and move between them by name alone:
+
+   ```bash
+   ./setup_station.sh              # list the grids already built
+   ./setup_station.sh HOT          # activate one, no coordinates needed
+   ```
+
+   The name-only form re-links an existing grid and does **not** need
+   FRE-NCtools on PATH — only building a new grid does. Passing coordinates
+   again rebuilds that station's grid from scratch.
+
+   Nothing else changes between stations: the initial conditions and forcing
+   are global and are interpolated onto whatever grid is present, and the
+   Coriolis parameter is derived from the grid latitude.
 
 ### A single-year run
 
@@ -411,8 +421,10 @@ distribution. **Contact Jessica Luo for access.**
 | `Soluble_Fe_Flux_PI.nc`, `Mineral_Fe_Flux_PI.nc`, `depflux_total.mean.1860.nc` | Fe / dust / N deposition | |
 | `seawifs-clim-*.nc` | chlorophyll climatology | |
 
-`geothermal_davies2013_v1.nc` and `diag_rho2.nc` come from the 1D CI dataset
-(`exps/datasets/OM4_025.JRA.single_column/`).
+`geothermal_davies2013_v1.nc` and `diag_rho2.nc` are also needed. Every
+`INPUT/` symlink resolves inside `exps/datasets/station_1d/`, so that one
+directory is the only thing you need to populate — this experiment does not
+depend on the 1D CI dataset.
 
 ## Known issue: `atm%tr_bot` out-of-bounds abort at the first timestep
 
