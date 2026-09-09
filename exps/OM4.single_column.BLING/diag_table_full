@@ -1,0 +1,56 @@
+OM4_single_column_BLING
+2004 1 1 0 0 0
+#=============================================================================
+# Diagnostics for the single-column BLING regression case: one field from each
+# part of BLING, so that a change anywhere in the module shows up somewhere in
+# the output. Daily means, which over the 2-day run gives two records each.
+#=============================================================================
+"ocean_static",         -1, "days", 1, "days", "time"
+"ocean_bling_sfc",       1, "days", 1, "days", "time"
+"ocean_bling_tracers",   1, "days", 1, "days", "time"
+#
+#=========================
+# Grid / physics reference
+#=========================
+ "ocean_model", "areacello",   "areacello",   "ocean_static", "all", "none", "none", 2
+ "ocean_model", "geolon",      "geolon",      "ocean_static", "all", "none", "none", 2
+ "ocean_model", "geolat",      "geolat",      "ocean_static", "all", "none", "none", 2
+ "ocean_model", "deptho",      "deptho",      "ocean_static", "all", "none", "none", 2
+ "ocean_model", "Coriolis",    "Coriolis",    "ocean_static", "all", "none", "none", 2
+ "ocean_model", "thetao",      "thetao",      "ocean_bling_tracers", "all", "mean", "none", 2
+ "ocean_model", "so",          "so",          "ocean_bling_tracers", "all", "mean", "none", 2
+ "ocean_model", "volcello",    "volcello",    "ocean_bling_tracers", "all", "mean", "none", 2
+#
+#=========================
+# BLING prognostic tracers
+#=========================
+ "generic_bling", "po4",       "po4",       "ocean_bling_tracers", "all", "mean", "none", 2
+ "generic_bling", "o2",        "o2",        "ocean_bling_tracers", "all", "mean", "none", 2
+ "generic_bling", "dic",       "dic",       "ocean_bling_tracers", "all", "mean", "none", 2
+ "generic_bling", "alk",       "alk",       "ocean_bling_tracers", "all", "mean", "none", 2
+ "generic_bling", "fed",       "fed",       "ocean_bling_tracers", "all", "mean", "none", 2
+ "generic_bling", "dop",       "dop",       "ocean_bling_tracers", "all", "mean", "none", 2
+ "generic_bling", "chl",       "chl",       "ocean_bling_tracers", "all", "mean", "none", 2
+ "generic_bling", "biomass_p", "biomass_p", "ocean_bling_tracers", "all", "mean", "none", 2
+ "generic_bling", "irr_mem",   "irr_mem",   "ocean_bling_tracers", "all", "mean", "none", 2
+#
+#=========================
+# Carbonate system
+#=========================
+ "generic_bling", "htotal",     "htotal",     "ocean_bling_tracers", "all", "mean", "none", 2
+ "generic_bling", "co3_ion",    "co3_ion",    "ocean_bling_tracers", "all", "mean", "none", 2
+ "generic_bling", "po4_pre",    "po4_pre",    "ocean_bling_tracers", "all", "mean", "none", 2
+ "generic_bling", "alk_pre",    "alk_pre",    "ocean_bling_tracers", "all", "mean", "none", 2
+ "generic_bling", "dic_pre",    "dic_pre",    "ocean_bling_tracers", "all", "mean", "none", 2
+ "generic_bling", "dic_sat",    "dic_sat",    "ocean_bling_tracers", "all", "mean", "none", 2
+ "generic_bling", "htotal_sat", "htotal_sat", "ocean_bling_tracers", "all", "mean", "none", 2
+#
+#=========================
+# Surface / gas exchange
+#=========================
+ "generic_bling", "dic_csurf",     "dic_csurf",     "ocean_bling_sfc", "all", "mean", "none", 2
+ "generic_bling", "dic_alpha",     "dic_alpha",     "ocean_bling_sfc", "all", "mean", "none", 2
+ "generic_bling", "dic_stf_gas",   "dic_stf_gas",   "ocean_bling_sfc", "all", "mean", "none", 2
+ "generic_bling", "o2_csurf",      "o2_csurf",      "ocean_bling_sfc", "all", "mean", "none", 2
+ "generic_bling", "o2_stf_gas",    "o2_stf_gas",    "ocean_bling_sfc", "all", "mean", "none", 2
+ "generic_bling", "dic_sat_csurf", "dic_sat_csurf", "ocean_bling_sfc", "all", "mean", "none", 2

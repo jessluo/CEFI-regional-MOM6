@@ -1,0 +1,124 @@
+# specific humidity for moist runs
+ "TRACER", "atmos_mod", "sphum"
+           "longname",     "specific humidity"
+           "units",        "kg/kg" /
+# prognostic cloud scheme tracers
+  "TRACER", "atmos_mod", "liq_wat"
+            "longname",     "cloud liquid specific humidity"
+            "units",        "kg/kg" /
+  "TRACER", "atmos_mod", "ice_wat"
+            "longname",     "cloud ice water specific humidity"
+            "units",        "kg/kg" /
+  "TRACER", "atmos_mod", "cld_amt"
+            "longname",     "cloud fraction"
+            "units",        "none" /
+# sphum must be present on land as well
+ "TRACER", "land_mod",     "sphum"
+           "longname",     "specific humidity"
+           "units",        "kg/kg" /
+###.................................................
+"namelists","ocean_mod","generic_bling"
+# enforce_src_info = t makes MOM_generic_tracer USE each tracer's *_src_file,
+# initialising it with MOM_initialize_tracer_from_Z, which interpolates the
+# global Z-space source onto whatever grid is in use. Tracers with no global
+# source carry _requires_src_info = f and _requires_restart = f, which sends
+# them to their registered init_value instead.
+enforce_src_info = t
+#
+po4_src_file = INPUT/woa13_all_p_annual_01.nc
+po4_src_var_name = p_an
+po4_src_var_unit = micromoles_per_liter
+po4_dest_var_name = po4
+po4_dest_var_unit = mol kg-1
+po4_src_var_record = 1
+po4_src_var_gridspec = NONE
+po4_valid_min = 0.0
+#
+o2_src_file = INPUT/woa13_all_o_annual_01.nc
+o2_src_var_name = o_an
+o2_src_var_unit = milliliters_per_liter
+o2_dest_var_name = o2
+o2_dest_var_unit = mol kg-1
+o2_src_var_record = 1
+o2_src_var_gridspec = NONE
+o2_valid_min = 0.0
+#
+alk_src_file = INPUT/GLODAPv2.2016b.oi-filled.20180322.nc
+alk_src_var_name = TAlk
+alk_src_var_unit = micromoles_per_kg
+alk_dest_var_name = alk
+alk_dest_var_unit = mol kg-1
+alk_src_var_record = 1
+alk_src_var_gridspec = NONE
+alk_valid_min = 0.0
+#
+dic_src_file = INPUT/GLODAPv2.2016b.oi-filled.20180322.nc
+dic_src_var_name = PI_TCO2
+dic_src_var_unit = micromoles_per_kg
+dic_dest_var_name = dic
+dic_dest_var_unit = mol kg-1
+dic_src_var_record = 1
+dic_src_var_gridspec = NONE
+dic_valid_min = 0.0
+#
+# Preformed / saturation carbon tracers (do_carbon_pre) are seeded from the
+# same GLODAP fields as their prognostic counterparts.
+alk_pre_src_file = INPUT/GLODAPv2.2016b.oi-filled.20180322.nc
+alk_pre_src_var_name = TAlk
+alk_pre_src_var_unit = micromoles_per_kg
+alk_pre_dest_var_name = alk_pre
+alk_pre_dest_var_unit = mol kg-1
+alk_pre_src_var_record = 1
+alk_pre_src_var_gridspec = NONE
+alk_pre_valid_min = 0.0
+#
+dic_pre_src_file = INPUT/GLODAPv2.2016b.oi-filled.20180322.nc
+dic_pre_src_var_name = PI_TCO2
+dic_pre_src_var_unit = micromoles_per_kg
+dic_pre_dest_var_name = dic_pre
+dic_pre_dest_var_unit = mol kg-1
+dic_pre_src_var_record = 1
+dic_pre_src_var_gridspec = NONE
+dic_pre_valid_min = 0.0
+#
+dic_sat_src_file = INPUT/GLODAPv2.2016b.oi-filled.20180322.nc
+dic_sat_src_var_name = PI_TCO2
+dic_sat_src_var_unit = micromoles_per_kg
+dic_sat_dest_var_name = dic_sat
+dic_sat_dest_var_unit = mol kg-1
+dic_sat_src_var_record = 1
+dic_sat_src_var_gridspec = NONE
+dic_sat_valid_min = 0.0
+#
+po4_pre_src_file = INPUT/woa13_all_p_annual_01.nc
+po4_pre_src_var_name = p_an
+po4_pre_src_var_unit = micromoles_per_liter
+po4_pre_dest_var_name = po4_pre
+po4_pre_dest_var_unit = mol kg-1
+po4_pre_src_var_record = 1
+po4_pre_src_var_gridspec = NONE
+po4_pre_valid_min = 0.0
+#
+# No global climatology exists for these; they cold-start from the init_value
+# registered in generic_BLING.F90 (htotal and htotal_sat start at htotal_in,
+# the rest at their registered constants) and spin up over the run.
+fed_requires_src_info = f
+fed_requires_restart = f
+dop_requires_src_info = f
+dop_requires_restart = f
+chl_requires_src_info = f
+chl_requires_restart = f
+biomass_p_requires_src_info = f
+biomass_p_requires_restart = f
+irr_mem_requires_src_info = f
+irr_mem_requires_restart = f
+co3_ion_requires_src_info = f
+co3_ion_requires_restart = f
+htotal_requires_src_info = f
+htotal_requires_restart = f
+htotal_sat_requires_src_info = f
+htotal_sat_requires_restart = f
+cased_requires_src_info = f
+cased_requires_restart = f
+#
+/

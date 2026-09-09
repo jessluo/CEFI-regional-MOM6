@@ -1,0 +1,46 @@
+# Selected into place by regression.sh from the tracked variants
+/input.nml
+/diag_table
+/diag_table_min
+
+# Run outputs
+/ocean.stats
+/ocean.stats.nc
+/seaice.stats
+/stocks.out
+/time_stamp.out
+/[0-9]*.nc
+/[0-9]*.nc.[0-9]*
+/RESTART/
+/RESTART_*/
+/Vertical_coordinate.nc
+/sea_ice_geometry.nc
+/available_diags.*
+/*.available_diags
+/warnfile.*
+/logfile.*
+/*.out
+/*.err
+/logs/
+
+# The BATS grid is built by ../OM4.single_column.COBALT.station/setup_station.sh,
+# so these symlinks point at files that are not version controlled.
+INPUT/ocean_hgrid.nc
+INPUT/ocean_topog.nc
+INPUT/topog.nc
+INPUT/ocean_mosaic.nc
+INPUT/ocean_mask.nc
+INPUT/atmos_mosaic.nc
+INPUT/land_mosaic.nc
+INPUT/land_mask.nc
+INPUT/grid_spec.nc
+INPUT/atmos_mosaic_tile1Xocean_mosaic_tile1.nc
+INPUT/land_mosaic_tile1Xocean_mosaic_tile1.nc
+
+# Restart files staged into INPUT/ by regression.sh
+INPUT/*.res.nc
+INPUT/coupler.res
+
+# Editor backups from config edits
+*.bak
+*.bak_*
