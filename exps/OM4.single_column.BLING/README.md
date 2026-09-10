@@ -103,8 +103,8 @@ answers moved.
 
 ### `bury_caco3` must stay `.true.`
 
-`generic_BLING_update_from_coupler` reads `runoff_tracer_flux` for `dic` and
-`alk` unconditionally:
+`generic_BLING_update_from_source` reads `runoff_tracer_flux` for `dic` and
+`alk` under `if (do_carbon)`, but not under `if (bury_caco3)`:
 
 ```fortran
 call g_tracer_get_values(tracer_list,'dic','runoff_tracer_flux',bling%runoff_flux_dic,isd,jsd)
@@ -112,7 +112,10 @@ call g_tracer_get_values(tracer_list,'alk','runoff_tracer_flux',bling%runoff_flu
 ```
 
 but those two tracers are only registered with `flux_runoff = .true.` inside the
-`if (bury_caco3)` branch, so with `bury_caco3 = .false.` the array is never
+`if (bury_caco3)` branch of `generic_BLING_register` (`generic_BLING.F90:2371`
+and `:2388`; the `else` branch at `:2409` and `:2426` sets `.false.`), and
+`generic_tracer_utils.F90:1092` allocates `runoff_tracer_flux` only when
+`flux_runoff` is set. So with `bury_caco3 = .false.` the array is never
 allocated. A bounds-checked build dies on the first coupled step with
 
 ```
@@ -122,5 +125,33 @@ Fortran runtime error: Array bound mismatch for dimension 1 of array 'array' (10
 
 and an unchecked build reads unallocated memory silently. `input.nml` therefore
 sets `bury_caco3 = .true.`, which is also why `cased` appears in `field_table`.
-Once the two `g_tracer_get_values` calls are given the same `if (bury_caco3)`
-guard as the registrations, `.false.` becomes testable too.
+
+Note that `do_carbon` defaults to `.true.` and `bury_caco3` to `.false.`
+(`generic_BLING.F90:220` and `:223`), so the default namelist takes the broken
+path — this is not an exotic corner of the parameter space.
+
+**Suggested fix**, once someone owns it upstream: give the two reads the same
+`if (bury_caco3)` guard that the adjacent `cased` and `di14c` calls already use.
+
+```fortran
+if (bury_caco3) then
+  call g_tracer_get_values(tracer_list,'dic','runoff_tracer_flux',bling%runoff_flux_dic,isd,jsd)
+  call g_tracer_get_values(tracer_list,'alk','runoff_tracer_flux',bling%runoff_flux_alk,isd,jsd)
+endif
+```
+
+That is safe rather than merely quiet: both arrays are allocated and zeroed
+unconditionally in `user_allocate_arrays` (`:5266-5267`), so skipping the read
+leaves 0.0 rather than undefined memory. Zero is also the correct answer — with
+`bury_caco3 = .false.` no riverine coupler flux is registered for these tracers,
+and the only consumer of `runoff_flux_dic` is the `icfriver` diagnostic at
+`:4709`. `runoff_flux_alk` has no consumer at all: on `dev/cefi` it appears only
+as its declaration, this read, the allocate and the deallocate.
+
+Registering the tracers with `flux_runoff = .true.` unconditionally would also
+stop the crash, but it contradicts the rationale in the code — alkalinity is
+restored by rivers *because* CaCO3 is buried — and it calls
+`aof_set_coupler_flux`, changing the exchange field list for every BLING run.
+
+With the guard in place, `bury_caco3 = .false.` becomes testable and is worth
+adding here as a second configuration.
