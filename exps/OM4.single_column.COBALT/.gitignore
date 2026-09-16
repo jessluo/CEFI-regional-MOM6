@@ -1,0 +1,20 @@
+# Run outputs
+/ocean.stats
+/ocean.stats.*
+[0-9]*.nc
+[0-9]*.nc.[0-9]*
+RESTART/
+Vertical_coordinate.nc
+available_diags.*
+*.available_diags
+warnfile.*
+logfile.*
+*.out
+*.err
+input.nml
+
+# Editor/config backups
+*.bak
+*.bak_*
+sea_ice_geometry.nc
+seaice.stats

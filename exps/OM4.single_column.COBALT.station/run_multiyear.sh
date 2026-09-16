@@ -27,7 +27,12 @@
 set -e
 
 NYEARS="${1:-10}"
-EXE="${2:-../../builds/build/mac-m1-osx-gnu/ocean_ice/repro/MOM6SIS2}"
+# Executable: positional $2 wins, then the EXE environment variable, then the
+# archived COBALT build, then the in-place build tree. The EXE hook lets a
+# variant experiment symlink this script and still get its own executable
+# (see builds/build_bgc_variant.sh).
+EXE="${2:-${EXE:-../../builds/exec/MOM6SIS2.cobalt}}"
+[ -x "$EXE" ] || EXE="../../builds/build/mac-m1-osx-gnu/ocean_ice/repro/MOM6SIS2"
 
 case "$NYEARS" in
     ''|*[!0-9]*) echo "usage: $0 <n_years> [executable]" >&2; exit 1 ;;

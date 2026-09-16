@@ -5,3 +5,17 @@ html
 
 # Ignore pycache
 **__pycache__
+
+# Per-BGC-variant executables archived by builds/build_bgc_variant.sh
+/builds/exec/
+
+# Build output tree (builds/build_bgc_variant.sh / builds/linux-build.bash).
+# Machine- and compiler-specific; never meant to be committed.
+/builds/build/
+
+# Large external input files for the 1D station experiments (multi-GB GLODAP /
+# WOA13 / COBALTv3 climatologies, CBED restarts, JRA forcing). Never committed
+# -- see exps/OM4.single_column.COBALT.station/README.md, "Input files". Each
+# experiment's INPUT/ symlinks (small, committed) point into this directory;
+# populate it locally before running.
+/exps/datasets/

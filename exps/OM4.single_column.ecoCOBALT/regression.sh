@@ -1,21 +1,27 @@
 #!/usr/bin/env bash
 #
-# Regression test for single-column BLING.
+# Regression test for single-column eco-COBALT.
 #
 #   ./regression.sh              run both checks
 #   ./regression.sh --update-ref run the 48-hour case and overwrite ref/ocean.stats
 #
-# Two independent checks, mirroring ../OM4.single_column.COBALT/driver.sh:
+# Two independent checks, mirroring ../OM4.single_column.BLING/regression.sh:
 #
 #   1. Restart reproducibility. One 48-hour run must give bitwise-identical
 #      restart files to a 24-hour run continued for another 24 hours. This is
-#      machine independent and catches state that BLING fails to checkpoint.
+#      machine independent and catches state that eco-COBALT fails to
+#      checkpoint -- in particular the 17 tracers carrying requires_restart = f.
 #
 #   2. Reference answer. ocean.stats from the 48-hour run must match
-#      ref/ocean.stats to within REL_TOL. This catches answer changes.
+#      ref/ocean.stats to within REL_TOL.
 #
-# Override MACHINE / PLATFORM if you are not on mac-m1 / osx-gnu, BUILD_TYPE if
-# you did not build 'repro', and REL_TOL to loosen check 2.
+# NOTE: ref/ocean.stats here is NOT comparable to the standard COBALT station
+# case. The merge changes the shared vertical sinking solver in
+# generic_tracer_utils.F90 for every sinking tracer, so eco-COBALT is not
+# expected to reproduce COBALT bitwise. Generate this reference fresh.
+#
+# Override MACHINE / PLATFORM / BUILD_TYPE for another system, EXE to point at a
+# different executable, REL_TOL to loosen check 2.
 #
 set -u
 
@@ -26,13 +32,37 @@ MACHINE="${MACHINE:-mac-m1}"
 PLATFORM="${PLATFORM:-osx-gnu}"
 BUILD_TYPE="${BUILD_TYPE:-repro}"
 REL_TOL="${REL_TOL:-1.0e-9}"
-EXE="${EXE:-$ROOT/builds/exec/MOM6SIS2.cobalt}"
-[ -x "$EXE" ] || EXE="$ROOT/builds/build/${MACHINE}-${PLATFORM}/ocean_ice/${BUILD_TYPE}/MOM6SIS2"
+EXE="${EXE:-$ROOT/builds/exec/MOM6SIS2.ecocobalt}"
 
-RESTART_FILES=(MOM.res.nc ice_bling.res.nc ice_model.res.nc ocean_bling_airsea_flux.res.nc)
+RESTART_FILES=(MOM.res.nc ice_cobalt.res.nc ice_model.res.nc ocean_cobalt_airsea_flux.res.nc)
 
 cd "$EXPDIR" || exit 1
-[ -x "$EXE" ] || { echo "No executable at $EXE -- build it first (see README.md)."; exit 1; }
+[ -x "$EXE" ] || {
+    echo "No executable at $EXE"
+    echo "Build it with: $ROOT/builds/build_bgc_variant.sh ecocobalt"
+    exit 1
+}
+
+# Pre-flight: the executable must have been built from the ocean_BGC source this
+# experiment's field_table and COBALT_override were written against. Running the
+# eco field_table against a standard-COBALT binary is the easiest mistake to make
+# and produces silently wrong results rather than an error.
+PROV="${EXE}.provenance"
+if [ -f BGC_SOURCE ] && [ -f "$PROV" ]; then
+    want=$(awk -F'= *' '/^commit/{print $2}' BGC_SOURCE | tr -d ' ')
+    have=$(awk '/^ocean_BGC/{print $3}' "$PROV")
+    if [ -n "$want" ] && [ -n "$have" ] && [ "$want" != "$have" ]; then
+        echo "BGC source mismatch:"
+        echo "  BGC_SOURCE wants : $want"
+        echo "  $(basename "$EXE") was built from : $have"
+        echo "Rebuild with: $ROOT/builds/build_bgc_variant.sh ecocobalt"
+        echo "(or set EXE=... if you know the difference is intentional)"
+        exit 1
+    fi
+fi
+echo "Executable: $EXE"
+[ -f "$PROV" ] && grep '^ocean_BGC' "$PROV"
+
 # shellcheck source=/dev/null
 [ -f "$ROOT/builds/$MACHINE/$PLATFORM.env" ] && source "$ROOT/builds/$MACHINE/$PLATFORM.env"
 
@@ -54,11 +84,9 @@ run() {
     return 0
 }
 
-head -2 diag_table_full > diag_table_min
-
 echo "== 48-hour run =="
 rm -f INPUT/*.res.nc INPUT/coupler.res
-run 48hr input.nml_48hr diag_table_full || exit 1
+run 48hr input.nml_48hr diag_table_ecoCOB_min || exit 1
 
 if [ "${1:-}" = "--update-ref" ]; then
     mkdir -p ref
@@ -69,12 +97,12 @@ fi
 
 echo "== 24-hour run =="
 rm -f INPUT/*.res.nc INPUT/coupler.res
-run 24hr input.nml_24hr diag_table_min || exit 1
+run 24hr input.nml_24hr diag_table_ecoCOB_min || exit 1
 
 echo "== 24-hour restart run =="
 rm -f INPUT/*.res.nc INPUT/coupler.res
 cp RESTART_24hr/*.res.nc RESTART_24hr/coupler.res INPUT/
-run 24hr_rst input.nml_24hr_rst diag_table_min || exit 1
+run 24hr_rst input.nml_24hr_rst diag_table_ecoCOB_min || exit 1
 
 status=0
 

@@ -1,0 +1,36 @@
+OM4_single_column_ecoCOBALT
+2004 1 1 0 0 0
+#=============================================================================================================================
+# Minimal table for the eco-COBALT smoke test and the restart-reproducibility
+# check. Daily means of just enough to answer two questions:
+#   1. did the four seeded biomass tracers come in non-zero and stay finite?
+#   2. did the gut / metabolite pools, which start at exactly 0.0, become
+#      non-zero -- i.e. is the DVM machinery actually running, not just
+#      allocated?
+# The full table is diag_table_ecoCOB.
+#=============================================================================================================================
+"ocean_ecoCOBALT", 1, "days", 1, "days", "time",
+#
+# --- new eco-COBALT biomass (seeded from ecocobalt_tracer_source.nc) ---
+ "generic_cobalt","nvmmdz",     "nvmmdz",     "ocean_ecoCOBALT","all","mean","none",2
+ "generic_cobalt","nvmlgz",     "nvmlgz",     "ocean_ecoCOBALT","all","mean","none",2
+ "generic_cobalt","nsmt",       "nsmt",       "ocean_ecoCOBALT","all","mean","none",2
+ "generic_cobalt","nlgt",       "nlgt",       "ocean_ecoCOBALT","all","mean","none",2
+#
+# --- new gut / metabolite pools (cold-started at 0.0) ---
+ "generic_cobalt","nvmmdz_gut", "nvmmdz_gut", "ocean_ecoCOBALT","all","mean","none",2
+ "generic_cobalt","nvmmdz_met", "nvmmdz_met", "ocean_ecoCOBALT","all","mean","none",2
+ "generic_cobalt","nvmlgz_gut", "nvmlgz_gut", "ocean_ecoCOBALT","all","mean","none",2
+ "generic_cobalt","nlgt_gut",   "nlgt_gut",   "ocean_ecoCOBALT","all","mean","none",2
+ "generic_cobalt","nlgt_met",   "nlgt_met",   "ocean_ecoCOBALT","all","mean","none",2
+ "generic_cobalt","fedet_fast", "fedet_fast", "ocean_ecoCOBALT","all","mean","none",2
+#
+# --- pre-existing groups, for comparison against the standard COBALT run ---
+ "generic_cobalt","nsmz",       "nsmz",       "ocean_ecoCOBALT","all","mean","none",2
+ "generic_cobalt","nmdz",       "nmdz",       "ocean_ecoCOBALT","all","mean","none",2
+ "generic_cobalt","nlgz",       "nlgz",       "ocean_ecoCOBALT","all","mean","none",2
+ "generic_cobalt","nsm",        "nsm",        "ocean_ecoCOBALT","all","mean","none",2
+ "generic_cobalt","nlg",        "nlg",        "ocean_ecoCOBALT","all","mean","none",2
+ "generic_cobalt","no3",        "no3",        "ocean_ecoCOBALT","all","mean","none",2
+ "generic_cobalt","chl",        "chl",        "ocean_ecoCOBALT","all","mean","none",2
+ "ocean_model","temp",          "temp",       "ocean_ecoCOBALT","all","mean","none",2

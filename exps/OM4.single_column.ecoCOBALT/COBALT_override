@@ -1,0 +1,35 @@
+! eco-COBALT parameter overrides. Intentionally empty: the branch defaults are
+! the tested configuration, and COBALT_parameter_doc.all after a run is the
+! authoritative list of what was actually used.
+!
+! All ~340 new eco-COBALT parameters are read with
+!   get_param(param_file, "generic_COBALT", ...)
+! i.e. from COBALT_input / COBALT_override -- NOT from the field_table, and not
+! from a namelist. namelist /generic_COBALT_nml/ is unchanged by the merge, so
+! input.nml needs no eco-specific edits either.
+!
+! Defaults worth knowing (generic_COBALT.F90 on feature/gz-cobalt-merge):
+!
+!   does_dvm_vmmdz = does_dvm_vmlgz = does_dvm_lgt = .true.
+!   does_dvm_smz   = does_dvm_mdz   = does_dvm_lgz = does_dvm_smt = .false.
+!     A FATAL check rejects does_dvm for any group other than VMMDZ/VMLGZ/LGT,
+!     since only those own gut and metabolite tracers.
+!
+!   *** DO NOT set does_dvm_vmmdz / _vmlgz / _lgt to .false. ***
+!     cobalt_send_diag.F90:908-943 computes f_mesozoo_200 / f_tunicate_200 by
+!     dereferencing zoo(VMMDZ)%f_gut_n, %f_met_n and the VMLGZ/LGT equivalents
+!     with no does_dvm guard and no diagnostic-id guard, but those arrays are
+!     allocated only inside `if (zoo(n)%does_dvm)` (generic_COBALT.F90:9467).
+!     Turning any of the three off reads unallocated memory. Fix that upstream
+!     first -- see README.md, "Known issues".
+!
+!   swim_max_vmmdz / _vmlgz / _lgt = 0.06 / 0.08 / 0.04 m s-1  (0.0 elsewhere)
+!   imax_vmmdz / _vmlgz / _smt / _lgt = 0.57 / 0.23 / 1.875 / 0.55 d-1 at 0 C
+!   k_clear_gut_* = 8.0 d-1, k_temp_gut_* = 4.32 d-1 degC-1, k_clear_met_* = 1.0 d-1
+!     (k_clear_gut_lgt / k_temp_gut_lgt are copepod values inherited by salps
+!      and are flagged in-source as retuning candidates)
+!   agg_lgt = 0.082e+6 d-1 (mol N kg-1)-1 ; frac_fast_det_lgt = 0.75 ; 0.0 elsewhere
+!   assim_eff_max_lgt / _min_lgt = 0.8 / 0.25, kae_lgt = 2.63e-6 mol N kg-1
+!     (all other groups have AE fixed at 0.7)
+!   do_fastsinking = .false., wsink_fast = 1000 m/day
+!     -- so fedet_fast is carried but inert in this configuration.

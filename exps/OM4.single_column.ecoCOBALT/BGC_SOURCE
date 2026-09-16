@@ -1,0 +1,24 @@
+# Which src/ocean_BGC source this experiment requires.
+#
+# Build it with:   builds/build_bgc_variant.sh ecocobalt
+# That leaves src/ocean_BGC detached at the commit below and writes
+# builds/exec/MOM6SIS2.ecocobalt plus a .provenance file recording the SHA.
+# regression.sh cross-checks the two and refuses to run on a mismatch.
+
+remote = https://github.com/jessluo/cefi_ocean_BGC.git
+branch = feature/gz-cobalt-merge
+commit = a5b7fb1edaa2bee11f4efc3a2f9ba5249dd2aaf4
+
+# This is a merge-forward onto the current NOAA-CEFI dev/cefi (66473e7), done
+# 2026-09-15. It brings in PR #177 (the dev/eco-cobalt fixes: jmetabo, the
+# layer-integral indexing bug, the Press-solver documentation, and the 35
+# uninitialised-parameter registrations -- all merged upstream into
+# cefi/dev/eco-cobalt and folded back in here) plus upstream's own
+# hardcoded-to-named-parameter conversion (66473e7) and its array-to-scalar
+# refactor of the per-cell conservation-check variables (post_totn / post_totc
+# / post_totfe and siblings), which required re-deriving the (i,j,k) indexing
+# in the imbalance checks to match the new scalar declarations.
+#
+# Verified 2026-09-16: NUM_ZOO=7, NUM_PREY=13, all 21 eco-COBALT tracers
+# unchanged, field_table unaffected. 2-day smoke test and full regression pass
+# (see exps/OM4.single_column.ecoCOBALT.dev's for the DVM-only branch).
