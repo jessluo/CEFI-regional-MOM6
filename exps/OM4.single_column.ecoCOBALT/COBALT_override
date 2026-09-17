@@ -15,21 +15,24 @@
 !     A FATAL check rejects does_dvm for any group other than VMMDZ/VMLGZ/LGT,
 !     since only those own gut and metabolite tracers.
 !
-!   *** DO NOT set does_dvm_vmmdz / _vmlgz / _lgt to .false. ***
-!     cobalt_send_diag.F90:908-943 computes f_mesozoo_200 / f_tunicate_200 by
-!     dereferencing zoo(VMMDZ)%f_gut_n, %f_met_n and the VMLGZ/LGT equivalents
-!     with no does_dvm guard and no diagnostic-id guard, but those arrays are
-!     allocated only inside `if (zoo(n)%does_dvm)` (generic_COBALT.F90:9467).
-!     Turning any of the three off reads unallocated memory. Fix that upstream
-!     first -- see README.md, "Known issues".
+!   Switching a migrator off is supported, and takes TWO parameters.
+!     does_dvm_<group> = False on its own does NOT hold a group still: it is
+!     still assigned a swimming speed, and nvmmdz / nvmlgz / nlgt are registered
+!     move_vertical = .true., so for those three that speed still moves the
+!     biomass tracer -- the group keeps migrating, just without carrying its gut
+!     and metabolite pools. Always set swim_max_<group> = 0.0 alongside;
+!     generic_COBALT enforces the pairing with a FATAL.
+!     See README.md, "Switching groups off".
 !
 !   swim_max_vmmdz / _vmlgz / _lgt = 0.06 / 0.08 / 0.04 m s-1  (0.0 elsewhere)
 !   imax_vmmdz / _vmlgz / _smt / _lgt = 0.57 / 0.23 / 1.875 / 0.55 d-1 at 0 C
 !   k_clear_gut_* = 8.0 d-1, k_temp_gut_* = 4.32 d-1 degC-1, k_clear_met_* = 1.0 d-1
 !     (k_clear_gut_lgt / k_temp_gut_lgt are copepod values inherited by salps
-!      and are flagged in-source as retuning candidates)
+!      as a starting point -- salp gut passage differs, so these are worth retuning)
 !   agg_lgt = 0.082e+6 d-1 (mol N kg-1)-1 ; frac_fast_det_lgt = 0.75 ; 0.0 elsewhere
-!   assim_eff_max_lgt / _min_lgt = 0.8 / 0.25, kae_lgt = 2.63e-6 mol N kg-1
-!     (all other groups have AE fixed at 0.7)
+!   assim_eff_max / _min = 0.8 / 0.25 for BOTH tunicates, kae_smt = 1.34e-6 and
+!     kae_lgt = 2.63e-6 mol N kg-1 -- SMT and LGT both have food-dependent AE,
+!     differing only in the half-saturation. The five crustacean groups are
+!     fixed at 0.7 (max = min, kae = 1.0e+10).
 !   do_fastsinking = .false., wsink_fast = 1000 m/day
 !     -- so fedet_fast is carried but inert in this configuration.

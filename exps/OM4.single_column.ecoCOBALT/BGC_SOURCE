@@ -7,7 +7,7 @@
 
 remote = https://github.com/jessluo/cefi_ocean_BGC.git
 branch = feature/gz-cobalt-merge
-commit = a5b7fb1edaa2bee11f4efc3a2f9ba5249dd2aaf4
+commit = 803144d7e6243157fb0f3718cbac14ed7df1fc12
 
 # This is a merge-forward onto the current NOAA-CEFI dev/cefi (66473e7), done
 # 2026-09-15. It brings in PR #177 (the dev/eco-cobalt fixes: jmetabo, the
@@ -22,3 +22,15 @@ commit = a5b7fb1edaa2bee11f4efc3a2f9ba5249dd2aaf4
 # Verified 2026-09-16: NUM_ZOO=7, NUM_PREY=13, all 21 eco-COBALT tracers
 # unchanged, field_table unaffected. 2-day smoke test and full regression pass
 # (see exps/OM4.single_column.ecoCOBALT.dev's for the DVM-only branch).
+
+# Updated 2026-09-17 from a5b7fb1 to 803144d ("enable does_dvm=.false. with
+# swim_max=0.0 and improve comments"). That commit makes does_dvm = .false. a
+# usable off-switch: the gut/metabolite standing stocks f_gut_* and f_met_n are
+# now allocated for all 7 zooplankton groups, so the 200 m integrals in
+# cobalt_send_diag.F90 no longer read unallocated memory when a migrator is
+# switched off, and a new FATAL requires swim_max = 0 alongside does_dvm = False.
+# It also adds the vmove_* / AE_* diagnostic sends that were registered but never
+# passed to g_send_data.
+#
+# Verified bit-for-bit neutral at the shipped defaults: regression.sh passes with
+# ocean.stats matching ref/ at 0.000e+00 and restarts identical.

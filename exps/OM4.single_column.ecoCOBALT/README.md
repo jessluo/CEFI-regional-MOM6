@@ -198,6 +198,10 @@ the other.
 `cobaltv3_tracer_source.nc` is never modified by either version; both write to
 a separate file, so the standard-COBALT station case is unaffected.
 
+To give a group a zero initial condition instead -- which switches it off for
+good, since zero is absorbing -- see "Switching groups off" below. That is a
+`field_table` edit, not an IC-file edit.
+
 ## Namelist requirements
 
 Only one namelist setting needs to differ from the station case, in
@@ -218,16 +222,163 @@ from the station case.
 a per-group `COBALT_input` / `COBALT_override` parameter (`does_dvm_vmmdz`,
 `_vmlgz`, `_smz`, etc.), and the defaults already turn migration on for the
 three groups that need it. `COBALT_override` here is intentionally empty and
-documents those defaults in its header comment; leave it that way unless you
-deliberately want different groups to migrate.
+documents those defaults in its header comment. See "Switching groups off"
+below if you want a different set of groups migrating.
 
-## Relationship to standard COBALT
+## Switching groups off
 
-eco-COBALT is **not** expected to reproduce
-`../OM4.single_column.COBALT.station` bitwise, for two independent reasons:
-`use_Press_et_al_tridiag_solver = .true.` changes the vertical solver for every
-tracer, and the merge adds four grazers to the food web. `ref/ocean.stats` here
-is generated fresh and is not comparable to the station case's.
+There are three ways to take a group out of the run, and they mean different
+things. Pick the one that matches the question you are asking.
+
+### Stop a group migrating
+
+Two parameters in `COBALT_override`, and **both are required**:
+
+```
+does_dvm_lgt = False
+swim_max_lgt = 0.0
+```
+
+`does_dvm_<group> = False` on its own is not enough. It does remove the group's
+gut and metabolite pools and route egestion straight from ingestion, but the
+group is still assigned a swimming speed, and `nvmmdz`, `nvmlgz` and `nlgt` are
+registered `move_vertical = .true.` -- so that speed still moves the biomass
+tracer. The group carries on migrating, just without transporting its gut
+contents, which is almost never what was intended. `generic_COBALT` enforces the
+pairing with a `FATAL`, so a half-configured run stops at initialisation instead
+of producing quietly wrong answers.
+
+Migration can only be enabled for `vmmdz`, `vmlgz` and `lgt` -- the three groups
+that own gut and metabolite tracers -- and a second `FATAL` rejects `does_dvm`
+anywhere else. Switching it *off* is supported for all seven.
+
+The group is otherwise untouched: still present, still grazing, still grazed.
+A group switched off this way becomes structurally identical to its
+non-migrating counterpart, differing only in its own parameter values. Static
+`lgt`, for instance, routes ingested material exactly as `smt` does, with no
+gut-clearance delay -- but it keeps `frac_fast_det_lgt = 0.75` and
+`agg_lgt = 8.2e+04`, so salp falls and fast-sinking egestion carry on.
+
+### Remove a group entirely (zero initial condition)
+
+Zero is an absorbing state for every grazer -- ingestion, growth and every loss
+term scale with biomass -- so a group started at zero stays at exactly zero for
+the whole run. This is the clean way to ask "what does this configuration look
+like without salps at all".
+
+In `field_table`, delete that group's six `<name>_src_*` / `<name>_valid_min`
+lines and add **both** of these:
+
+```
+nsmt_requires_restart = f
+nsmt_requires_src_info = f
+```
+
+Both flags are needed. `initialize_MOM_generic_tracer` skips initialisation only
+when `.not. requires_restart`; a prognostic tracer with no `src_file` that still
+requires a restart falls through to the global generic-tracer IC file and aborts
+with `check Generic Tracer IC filename`. Dropping the restart requirement is
+safe precisely because the value is always 0.0, so there is nothing to carry
+across a restart.
+
+Two things to know. The tracers still exist: registered, advected, diffused and
+written to restarts every step, just permanently zero, so there is no cost
+saving. And zeroing an initial condition removes that nitrogen from the column,
+so total inventory no longer matches a run that seeds the group. If you need
+matched inventories, fold the removed nitrogen into `nmdz`/`nlgz` in the IC
+file, the same bookkeeping choice described under "Initial conditions".
+
+### Starve a group (`imax = 0`)
+
+```
+imax_smt = 0.0
+imax_lgt = 0.0
+```
+
+`imax` multiplies the ingestion matrix, so zero removes all feeding while
+leaving the group present, edible and decaying. Unlike a zero initial condition
+this conserves nitrogen -- the biomass drains into detritus and other grazers
+rather than vanishing at `t = 0`. The group never reaches zero either, because
+basal respiration scales as `f_n^2 / (refuge_conc + f_n)` and so falls away
+faster than the biomass does.
+
+## Relationship to its parent models
+
+eco-COBALT is the merge of two parent configurations -- COBALTv3-DVM
+(`dev/eco-cobalt`, which adds diel vertical migration) and standard COBALTv3
+(`dev/cefi`). Switching the added groups off brings it close to each parent but
+not bitwise onto either, and it is worth knowing why before you interpret a
+difference as a bug.
+
+Neither parent shares this case's `ref/ocean.stats`; it is generated fresh here
+and is not comparable to the station case's.
+
+### Reducing to COBALTv3-DVM
+
+Zero the two tunicate groups and what remains is parameter-for-parameter
+identical to `dev/eco-cobalt`, apart from an equivalent rewrite of the egestion
+fractions (see below). The runs still diverge -- 7-day run at BATS, column
+means, eco-COBALT relative to `dev/eco-cobalt`:
+
+| `nvmmdz` | `nmdz` | `no3` |
+|---|---|---|
+| -8.9% | -5.5% | agrees to 5 significant figures |
+
+The divergence is already 1.3% on day 1, so it is not a food-web effect of
+removing the tunicates. It comes from active-feeding respiration:
+`dev/eco-cobalt` registers `phi_aresp_*` (0.3 for every group) but never uses
+it, while eco-COBALT adds it to `jmetabo_n` for the migrating groups. eco's
+migrators therefore respire more and lose biomass faster.
+
+To reproduce: build the DVM-only executable with
+`builds/build_bgc_variant.sh devecocobalt`, and run it against a copy of this
+experiment whose `field_table` has the nine tracers that branch does not define
+removed -- `nsmt`, `nlgt`, `nlgt_gut`, `nlgt_met`, `plgt_gut`, `silgt_gut`,
+`felgt_gut`, `fedet_fast`, `fedet_fast_btf`. Give the copy its own `INPUT/`:
+two cases sharing one directory will overwrite each other's restart pickups and
+silently start from different dates.
+
+### Reducing to standard COBALTv3
+
+Zero the tunicates *and* the migrating crustaceans, repoint `nmdz`/`nlgz` at
+`cobaltv3_tracer_source.nc` so they carry the full standard inventory rather
+than their halved values, and drop `use_Press_et_al_tridiag_solver` (it does not
+exist in the standard build). The two then agree to about one percent --
+maximum relative difference over a 7-day run at BATS:
+
+| `temp` | `no3` | `nlgz` | `nmdz` | `nsmz` | `ndet` |
+|---|---|---|---|---|---|
+| 3e-06 | 1e-03 | 1e-02 | 2e-02 | 3e-02 | 6e-02 |
+
+Of the 346 parameters the two models share, only the egestion fractions differ,
+and that is an equivalent rewrite rather than a retuning: standard COBALT folds
+the unassimilated fraction into the `phi_*` values, which sum to 0.30, and
+applies them to ingestion; eco-COBALT factors it out as
+`egest = (1 - AE) * ingestion` and renormalises `phi_*` to sum to 1.0. With
+`AE = 0.7` the two give the same flux, which is why every `phi_*` differs by
+exactly 10/3. `gge_max` is 0.4 in both.
+
+The residual is structural, not parametric: the two impose nitrogen-phosphorus
+colimitation at different points.
+
+```
+standard:  jprod_n = gge_max*jingest_n - basal_respiration
+           jprod_n = min(jprod_n, AE*jingest_p/q_p_2_n)
+eco:       jprod_n = (AE - phi_aresp)*min(jingest_n, jingest_p/q_p_2_n)
+                     - basal_respiration
+```
+
+Both give an effective growth efficiency of 0.4, and they agree exactly wherever
+phosphorus is plentiful, but eco applies the colimitation before subtracting
+respiration while standard caps afterwards. At oligotrophic BATS, where P is
+often co-limiting, that reordering is worth the ~1% seen above.
+
+To reproduce, both sides need the same column and the same starting point:
+run standard COBALT on this case's BATS grid (its own `field_table` against
+`MOM6SIS2.cobalt`), and reduce this case as described above. Both must
+cold-start -- delete `INPUT/*.res.nc` and `INPUT/coupler.res` first -- because
+restart pickups override the `field_table` initial conditions, and this case's
+restarts carry the halved `nmdz`/`nlgz` rather than the standard values.
 
 ## Files
 
@@ -243,9 +394,10 @@ is generated fresh and is not comparable to the station case's.
 
 ## Status
 
-Verified on mac-m1 / osx-gnu / repro at BATS, most recently 2026-09-16 against
-`builds/exec/MOM6SIS2.ecocobalt` built from
-[the current `feature/gz-cobalt-merge` tip](https://github.com/jessluo/cefi_ocean_BGC/commit/a5b7fb1edaa2bee11f4efc3a2f9ba5249dd2aaf4):
+Verified on mac-m1 / osx-gnu / repro at BATS against
+`builds/exec/MOM6SIS2.ecocobalt`, built from
+[`803144d`](https://github.com/jessluo/cefi_ocean_BGC/commit/803144d7e6243157fb0f3718cbac14ed7df1fc12)
+on `feature/gz-cobalt-merge`:
 
 - builds clean, no new warnings
 - all four biomass tracers initialise via `MOM_initialize_tracer_from_Z`
@@ -255,4 +407,7 @@ Verified on mac-m1 / osx-gnu / repro at BATS, most recently 2026-09-16 against
   +0.089 K/yr, salinity flat
 - `./regression.sh` passes: restart files bitwise identical across
   48hr vs 24hr+24hr, `ocean.stats` matches `ref/` to `0.000e+00`
+- migration can be switched off per group without changing the answer when it
+  is left on; a group switched off is bit-identical to its non-migrating
+  counterpart (`nvmmdz` vs `nmdz`, `nvmlgz` vs `nlgz`, `0.000e+00` over 7 days)
 
