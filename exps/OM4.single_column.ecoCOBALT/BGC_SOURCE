@@ -7,7 +7,7 @@
 
 remote = https://github.com/jessluo/cefi_ocean_BGC.git
 branch = feature/gz-cobalt-merge
-commit = 803144d7e6243157fb0f3718cbac14ed7df1fc12
+commit = 663cfa3f008d275f2a04970c2232f244892d40ea
 
 # This is a merge-forward onto the current NOAA-CEFI dev/cefi (66473e7), done
 # 2026-09-15. It brings in PR #177 (the dev/eco-cobalt fixes: jmetabo, the
@@ -34,3 +34,16 @@ commit = 803144d7e6243157fb0f3718cbac14ed7df1fc12
 #
 # Verified bit-for-bit neutral at the shipped defaults: regression.sh passes with
 # ocean.stats matching ref/ at 0.000e+00 and restarts identical.
+
+# Updated 2026-09-22 from 803144d to 663cfa3, via two answer-changing commits:
+#   a147296  non-migrating zooplankton apply the N-P colimitation cap to jprod_n
+#            after respiration, as COBALTv3 does, instead of to ingestion.
+#   663cfa3  jfe_ads_fast removed: iron scavenging scales with ndet + ndet_fast
+#            and all adsorbed iron goes to fedet (the COBALTv3 form, reverting
+#            GZ-COBALT's split onto fedet_fast).
+# With hp_phi_vis = 0.0 (see ../OM4.single_column.ecoCOBALT.stdequiv), eco-COBALT
+# now reduces to standard COBALTv3 to roundoff; see README.md.
+#
+# Verified: regression.sh passes against MOM6SIS2.ecocobalt built from 663cfa3,
+# restarts identical 48hr vs 24hr+24hr, ocean.stats within 1.970e-10 of ref/
+# (under the 1e-9 tolerance, so ref/ was not regenerated).

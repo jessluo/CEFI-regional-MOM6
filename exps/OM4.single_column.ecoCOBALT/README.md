@@ -342,13 +342,25 @@ silently start from different dates.
 
 Zero the tunicates *and* the migrating crustaceans, repoint `nmdz`/`nlgz` at
 `cobaltv3_tracer_source.nc` so they carry the full standard inventory rather
-than their halved values, and drop `use_Press_et_al_tridiag_solver` (it does not
-exist in the standard build). The two then agree to about one percent --
-maximum relative difference over a 7-day run at BATS:
+than their halved values, drop `use_Press_et_al_tridiag_solver` (it does not
+exist in the standard build), and set `hp_phi_vis = 0.0`. The two then agree
+to roundoff -- maximum relative difference over a 7-day run at BATS:
 
-| `temp` | `no3` | `nlgz` | `nmdz` | `nsmz` | `ndet` |
-|---|---|---|---|---|---|
-| 3e-06 | 1e-03 | 1e-02 | 2e-02 | 3e-02 | 6e-02 |
+| `temp` | `no3` | `nlgz` | `nmdz` | `nsmz` | `nsm` | `nlg` | `chl` | `ndet` |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 2.5e-08 | 0 | 0 | 0 |
+
+`hp_phi_vis` is the one parameter that must be changed. eco-COBALT scales
+higher-predator ingestion by a light limitation (Poupon et al. 2025),
+
+```
+hp_vis_lim = (1 - hp_phi_vis) + hp_phi_vis * irr / (irr + kirr_hp*ki_hp/(ki_hp + tot_prey_hp))
+```
+
+which has no COBALTv3 counterpart and reduces to 1 only when
+`hp_phi_vis = 0`. At the default 0.90 it cuts predation on `nmdz` and `nlgz`
+by ~90% at night. Leaving it on gives residuals of order 1e-02 in `nmdz`,
+`nlgz` and `ndet`, which were once put down to N-P colimitation (see below).
 
 Of the 346 parameters the two models share, only the egestion fractions differ,
 and that is an equivalent rewrite rather than a retuning: standard COBALT folds
@@ -358,20 +370,39 @@ applies them to ingestion; eco-COBALT factors it out as
 `AE = 0.7` the two give the same flux, which is why every `phi_*` differs by
 exactly 10/3. `gge_max` is 0.4 in both.
 
-The residual is structural, not parametric: the two impose nitrogen-phosphorus
-colimitation at different points.
+Non-migrating zooplankton impose nitrogen-phosphorus colimitation exactly as
+standard COBALT does, capping production after respiration
+([`a147296`](https://github.com/jessluo/cefi_ocean_BGC/commit/a14729643739a2c21bb1b433cec41223166ed550)):
 
 ```
-standard:  jprod_n = gge_max*jingest_n - basal_respiration
-           jprod_n = min(jprod_n, AE*jingest_p/q_p_2_n)
-eco:       jprod_n = (AE - phi_aresp)*min(jingest_n, jingest_p/q_p_2_n)
-                     - basal_respiration
+jprod_n = (AE - phi_aresp)*jingest_n - basal_respiration
+jprod_n = min(jprod_n, AE*jingest_p/q_p_2_n)
 ```
 
-Both give an effective growth efficiency of 0.4, and they agree exactly wherever
-phosphorus is plentiful, but eco applies the colimitation before subtracting
-respiration while standard caps afterwards. At oligotrophic BATS, where P is
-often co-limiting, that reordering is worth the ~1% seen above.
+Earlier eco-COBALT code applied the colimitation to ingestion, before
+respiration. That was a real difference, but it partly offset the missing
+higher-predator losses, so fixing it on its own made `nmdz` and `nlgz` agree
+*less* well. Only with `hp_phi_vis = 0` as well does the reduction come out
+exact.
+
+Iron scavenging is also the COBALTv3 form: the rate scales with
+`ndet + ndet_fast` and all adsorbed iron goes to slow `fedet`. GZ-COBALT had
+split it, sending the fast share to `fedet_fast` (`jfe_ads_fast`); that has been
+reverted, so fast-sinking iron detritus now comes only from egestion.
+
+The 2.5e-08 in `nsm` is a single cell (day 7, level 13) differing by one
+float32 unit in the last place, i.e. double-precision roundoff surfacing in the
+32-bit output. It is not a structural difference.
+
+To find where the two first diverge, run both for 1 hour with
+`dt_cpld = dt_atmos = 900` (one coupling step per biogeochemical step) and
+write every generic_cobalt 3-D diagnostic that both models share every 15
+minutes. The first record is then the first biogeochemical step from identical
+state, so any field that differs there beyond roundoff is a structural
+difference. FMS allows at most 300 fields per file, so the diagnostics must be
+split across two files. Leave out `det_jzloss_n` and `det_jhploss_n`:
+requesting either aborts both executables, because each is registered twice in
+`cobalt_reg_diag.F90`.
 
 To reproduce, both sides need the same column and the same starting point:
 run standard COBALT on this case's BATS grid (its own `field_table` against
