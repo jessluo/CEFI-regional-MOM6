@@ -9,6 +9,7 @@
 #   e.g.  ./setup_station.sh BATS  31.6667  -64.1667          # first time
 #         ./setup_station.sh HOT   22.75   -158.0     4800
 #         ./setup_station.sh BATS                             # switch back later
+#         SPONGE_DAYS=90 ./setup_station.sh BATS              # 90-day restoring
 #
 # Grids are kept per station under INPUT/grids/<name>/ and are never deleted
 # except by rebuilding that same station, so a set of stations can be built
@@ -28,6 +29,9 @@ cd "$expdir"
 GRID_FILES="ocean_hgrid.nc ocean_topog.nc ocean_mosaic.nc atmos_mosaic.nc \
 land_mosaic.nc land_mask.nc ocean_mask.nc grid_spec.nc \
 atmos_mosaic_tile1Xocean_mosaic_tile1.nc land_mosaic_tile1Xocean_mosaic_tile1.nc"
+
+# Per-station 3-D restoring inputs written by make_sponge.py.
+SPONGE_FILES="sponge_damping.nc sponge_state_woa13.nc sponge_bgc.nc"
 
 list_grids() {
     if [ -d INPUT/grids ] && [ -n "$(ls -A INPUT/grids 2>/dev/null)" ]; then
@@ -141,11 +145,24 @@ else
     echo "Activating existing grid for $station"
 fi
 
+# 3-D restoring inputs (see make_sponge.py). They depend only on the grid,
+# so build them once per station; a rebuilt grid gets fresh ones.
+# SPONGE_DAYS=<days> rebuilds them with that restoring timescale (default 90).
+missing=""
+for f in $SPONGE_FILES; do [ -e "$griddir/$f" ] || missing=yes; done
+if [ -n "$SPONGE_DAYS" ] || [ -n "$missing" ]; then
+    python3 make_sponge.py "$griddir" ${SPONGE_DAYS:+"$SPONGE_DAYS"}
+fi
+
 # Point INPUT/ at the chosen station, replacing whatever was active before.
-( cd INPUT && for f in $GRID_FILES; do ln -sfn "grids/$station/$f" "$f"; done
+( cd INPUT && for f in $GRID_FILES $SPONGE_FILES; do ln -sfn "grids/$station/$f" "$f"; done
   ln -sfn ocean_topog.nc topog.nc )
 
 echo "Station '$station' is now active in INPUT/."
+tau=$(ncdump -h "$griddir/sponge_damping.nc" 2>/dev/null \
+      | sed -n 's/.*restoring_timescale_days = \([0-9.]*\).*/\1/p' | awk '{printf "%g", $1}')
+echo "3-D restoring timescale: ${tau:-unknown} days" \
+     "(change with: SPONGE_DAYS=<days> $0 $station)"
 
 if [ "$mode" = build ]; then
     echo "Tiling check from make_coupler_mosaic:"
