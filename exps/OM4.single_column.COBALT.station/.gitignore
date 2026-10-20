@@ -29,6 +29,9 @@ INPUT/land_mask.nc
 INPUT/grid_spec.nc
 INPUT/atmos_mosaic_tile1Xocean_mosaic_tile1.nc
 INPUT/land_mosaic_tile1Xocean_mosaic_tile1.nc
+INPUT/sponge_damping.nc
+INPUT/sponge_state_woa13.nc
+INPUT/sponge_bgc.nc
 
 # Restart files linked into INPUT/ by run_multiyear.sh between segments
 INPUT/*.res.nc

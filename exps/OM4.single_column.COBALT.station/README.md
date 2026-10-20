@@ -270,15 +270,16 @@ the last `RESTART_yearNN` by hand.
 shows the ocean's adjustment and drift timescale under one fixed atmosphere,
 not decadal variability.
 
-**There is no temperature or salinity restoring**: `RESTORE_SALINITY` and
-`RESTORE_TEMPERATURE` are both false. A single column has no lateral heat or
+**There is no restoring by default**: `RESTORE_SALINITY`,
+`RESTORE_TEMPERATURE` and the 3-D sponge are all off. A single column has no lateral heat or
 salt transport, so any net surface imbalance accumulates rather than being
 exported. Over one year at BATS the upper ocean warms about 1.6 C at the
 surface even with correct rotation; across ten segments that compounds.
 
 Watch column-mean temperature in `history/yearNN/ocean.stats` from segment to
-segment. If the drift is unacceptable for your application, the usual remedy
-is surface restoring: set `RESTORE_SALINITY = True` (and optionally
+segment. If the drift is unacceptable for your application, the simplest
+remedy is the built-in [3-D restoring](#optional-3-d-restoring), which also
+covers nutrients and carbon. The alternative is surface restoring: set `RESTORE_SALINITY = True` (and optionally
 `RESTORE_TEMPERATURE`) in `MOM_override` and supply the corresponding
 `SALT_RESTORE_FILE` / `SST_RESTORE_FILE` on the model grid, holding the
 monthly climatological surface values at the station. `FLUXCONST` sets the
@@ -303,6 +304,8 @@ are the reason why.
 | BGC IC | `MOM_IC.nc` via `GENERIC_TRACER_IC_FILE` | per-tracer global sources |
 | Coriolis | `F_0 = 0` (no rotation) | `2omegasinlat` (from latitude) |
 | Fe / N deposition | off | on |
+| 3-D restoring | none | optional, off by default |
+| DIC IC | `MOM_IC.nc` | GLODAPv2 modern `TCO2` |
 
 **Physical initial conditions.** The regression case overrides
 `INIT_LAYERS_FROM_Z_FILE` to `False` and reads `MOM_IC.nc`, which is
@@ -370,7 +373,7 @@ atmospheric CO2 is a constant 360 ppm in `data_table` — change all three
 |---|---|
 | `woa13_decav_{ptemp,s}_monthly_fulldepth_01.nc` | temperature, salinity |
 | `woa13_all_{n,o,p,i}_annual_01.nc` | no3, o2, po4, sio4 |
-| `GLODAPv2.2016b.oi-filled.20180322.nc` | alk, dic |
+| `GLODAPv2.2016b.oi-filled.20180322.nc` | alk (`TAlk`), dic (`TCO2`, modern) |
 | `cobaltv3_tracer_source.nc` | all remaining COBALT tracers |
 
 `cobaltv3_tracer_source.nc` is the COBALTv3 initial-condition file: global,
@@ -402,6 +405,54 @@ relax to ambient conditions within days. They carry
 `_requires_src_info = f` and `_requires_restart = f` in `field_table`, which
 routes them down `MOM_generic_tracer`'s "initialized by the tracer package"
 path instead of demanding a `GENERIC_TRACER_IC_FILE`.
+
+## Optional: 3-D restoring
+
+Restoring is **off by default**. When it is on, T, S, NO3, PO4, SiO4, DIC and
+alkalinity are relaxed toward climatology at every depth with a timescale tau:
+
+    dX/dt = ... + (X_clim - X) / tau
+
+The targets are WOA13 monthly T/S, WOA13 annual nutrients, and GLODAPv2 DIC
+and alkalinity, taken from the same files as the initial conditions.
+`setup_station.sh` builds the restoring files for each station automatically.
+
+**To turn it on,** set both switches in the 3-D restoring block of
+`MOM_override`:
+
+```
+#override SPONGE = True
+#override DO_SPONGE_GENERIC_TRACER = True
+```
+
+Set only `SPONGE = True` to restore T and S alone. Leave out one tracer with
+`DO_SPONGE_GT_<tracer> = False`.
+
+**To set the timescale** (default 90 days), rebuild the station's restoring
+files. tau is read from `INPUT/sponge_damping.nc`, not from `MOM_override`.
+
+```bash
+SPONGE_DAYS=60 ./setup_station.sh BATS
+```
+
+The same tau applies to T, S and every restored tracer, at all depths.
+
+**Use restoring with caution.** It stands in for the lateral supply and
+upwelling a single column cannot represent, so how much a site needs, and
+which tau is reasonable, depends on its local circulation and BGC dynamics.
+For example, in 2-year tests with tau = 120 days:
+
+- **BATS:** restoring corrected slow interior nutrient drift, but it also
+  removed winter-entrained nitrate from the euphotic zone and cut new
+  production by about a third.
+- **Ocean Station Papa:** the unrestored column lost its halocline, and even
+  restoring only partly held it.
+
+Always compare against a run with restoring off. Remember that the sponge
+then adds to every heat, salt, nutrient and carbon budget, including the
+apparent air-sea CO2 flux. Add `sp_tendency_<name>` (for example
+`sp_tendency_no3`) to `diag_table` to see its contribution. O2 is not
+restored.
 
 ## Input files — how to get them
 
