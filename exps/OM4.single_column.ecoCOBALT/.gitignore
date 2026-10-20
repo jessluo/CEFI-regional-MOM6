@@ -45,3 +45,8 @@ seaice.stats
 
 # Driver scratch
 logs/
+
+# Per-station 3-D restoring inputs (built by make_sponge.py) and their links
+INPUT/sponge_damping.nc
+INPUT/sponge_state_woa13.nc
+INPUT/sponge_bgc.nc

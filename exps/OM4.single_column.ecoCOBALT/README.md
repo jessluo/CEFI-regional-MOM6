@@ -225,6 +225,14 @@ three groups that need it. `COBALT_override` here is intentionally empty and
 documents those defaults in its header comment. See "Switching groups off"
 below if you want a different set of groups migrating.
 
+## Optional: 3-D restoring
+
+Off by default, and set up exactly as in the station case. See its
+[3-D restoring](../OM4.single_column.COBALT.station/README.md#optional-3-d-restoring)
+section for how to turn it on, how to set the timescale, and why to use it
+with caution. Only T, S, NO3, PO4, SiO4, DIC and alkalinity are restored; the
+eco-COBALT tracers are left free.
+
 ## Switching groups off
 
 There are three ways to take a group out of the run, and they mean different
@@ -421,7 +429,8 @@ restarts carry the halved `nmdz`/`nlgz` rather than the standard values.
 | `diag_table_ecoCOB_min` | regression test: are the new tracers alive? |
 | `diag_table_ecoCOB` | full table: station's `diag_table_no_daily` plus the eco-COBALT tracers and rate diagnostics |
 | `regression.sh` | 48hr vs 24hr+24hr restart check + `ocean.stats` vs `ref/` |
-| `setup_station.sh` | copy of the station case's; owns this experiment's grids |
+| `setup_station.sh` | copy of the station case's; owns this experiment's grids and sponge inputs |
+| `make_sponge.py` | symlink to the station case's; builds the 3-D restoring inputs |
 
 ## Status
 
